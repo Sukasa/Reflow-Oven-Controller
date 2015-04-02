@@ -83,18 +83,18 @@ namespace Reflow_Oven_Controller
             _Rows = new TristatePort[4];
             _Columns = new InputPort[3];
 
-            _Rows[0] = new TristatePort(RowPin1, false, false, Port.ResistorMode.PullDown);
-            _Rows[1] = new TristatePort(RowPin2, false, false, Port.ResistorMode.PullDown);
-            _Rows[2] = new TristatePort(RowPin3, false, false, Port.ResistorMode.PullDown);
-            _Rows[3] = new TristatePort(RowPin4, false, false, Port.ResistorMode.PullDown);
+            _Rows[0] = new TristatePort(RowPin1, false, false, Port.ResistorMode.Disabled);
+            _Rows[1] = new TristatePort(RowPin2, false, false, Port.ResistorMode.Disabled);
+            _Rows[2] = new TristatePort(RowPin3, false, false, Port.ResistorMode.Disabled);
+            _Rows[3] = new TristatePort(RowPin4, false, false, Port.ResistorMode.Disabled);
 
             for (int Row = 0; Row < 4; Row++ )
                 if (_Rows[Row].Active)   // This if statement works around a firmware design choice to THROW AN EXCEPTION if you try to set active to the value
                     _Rows[Row].Active = false; // it already is.  What kind of design choice is that?!
 
-            _Columns[0] = new InputPort(ColumnPin1, false, Port.ResistorMode.Disabled);
-            _Columns[1] = new InputPort(ColumnPin2, false, Port.ResistorMode.Disabled);
-            _Columns[2] = new InputPort(ColumnPin3, false, Port.ResistorMode.Disabled);
+            _Columns[0] = new InputPort(ColumnPin1, false, Port.ResistorMode.PullDown);
+            _Columns[1] = new InputPort(ColumnPin2, false, Port.ResistorMode.PullDown);
+            _Columns[2] = new InputPort(ColumnPin3, false, Port.ResistorMode.PullDown);
             
             _LED = new OutputPort(LEDPin, true);
             _Buzzer = new OutputPort(BuzzerPin, false);
