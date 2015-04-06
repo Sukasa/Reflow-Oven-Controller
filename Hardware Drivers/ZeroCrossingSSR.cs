@@ -10,13 +10,12 @@ namespace Reflow_Oven_Controller
 {
     class ZeroCrossingSSR
     {
-        private Timer T;
-        private OutputPort Output;
+        private Timer _PulseTimer;
+        private OutputPort _Output;
 
-        private float Tracking;
+        private float _Tracking;
         private float _PowerLevel;
-
-        private const float Delta = 1f / 60f;
+        private float _Increment;
 
         public float PowerLevel
         {
@@ -26,7 +25,16 @@ namespace Reflow_Oven_Controller
             }
             set
             {
+                float _OldPowerLevel = _PowerLevel;
                 _PowerLevel = (float)Math.Max(Math.Min(value, 1.0f), 0.0f);
+
+                if (Math.Abs(_OldPowerLevel - _PowerLevel) > 0.001)
+                {
+                    float OnPulses = (float)Math.Floor(125f * _PowerLevel);
+                    float OffPulses = 125f - OnPulses;
+                    if (OnPulses != 0)
+                        _Increment = OffPulses / OnPulses;
+                }
             }
         }
 
@@ -40,28 +48,27 @@ namespace Reflow_Oven_Controller
 
             if (SSR._PowerLevel < 0.01)
             {
-                SSR.Tracking = 0;
+                SSR._Tracking = 0;
+                SSR._Output.Write(false);
                 return;
             }
 
-            float Interval = (1000f / (120f * SSR._PowerLevel));
-            SSR.Tracking += 8f;
-            
-            if (SSR.Tracking >= Interval)
+            if (SSR._Tracking <= 0f)
             {
-                SSR.Tracking -= Interval;
-                SSR.Output.Write(true);
+                SSR._Tracking = (float)Math.Max(SSR._Tracking + SSR._Increment, -1.0);
+                SSR._Output.Write(true);
             }
             else
             {
-                SSR.Output.Write(false);
+                SSR._Tracking -= 1f;
+                SSR._Output.Write(false);
             }
         }
 
         public ZeroCrossingSSR(Cpu.Pin SSRPin)
         {
-            T = new Timer(Tick, this, 0, 8);
-            Output = new OutputPort(SSRPin, false);
+            _PulseTimer = new Timer(Tick, this, 0, 8);
+            _Output = new OutputPort(SSRPin, false);
         }
     }
 }
