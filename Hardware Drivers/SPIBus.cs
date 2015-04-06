@@ -7,7 +7,7 @@ using Microsoft.SPOT.Hardware;
 using SecretLabs.NETMF.Hardware;
 using SecretLabs.NETMF.Hardware.Netduino;
 
-namespace Reflow_Oven_Controller
+namespace Reflow_Oven_Controller.Hardware_Drivers
 {
     class SPIBus
     {
@@ -69,6 +69,12 @@ namespace Reflow_Oven_Controller
         public void Write(byte[] Data)
         {
             DeviceBus.Write(Data);
+        }
+
+        public void Write(byte[] Data, int StartOffset, int Count)
+        {
+            byte[] Dummy = new byte[Count];
+            DeviceBus.WriteRead(Data, StartOffset, Count, Dummy, 0, Count, 0);
         }
 
         public byte[] ReadWrite(byte[] Data)
