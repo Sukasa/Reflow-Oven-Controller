@@ -44,7 +44,7 @@ namespace Reflow_Oven_Controller.Process_Control
             for (int Datapoint = 0; Datapoint < Buffer[0]; Datapoint++)
             {
                 _Datapoints[Datapoint] = new ProfileDatapoint(Buffer, Ptr);
-                Ptr += 8;
+                Ptr += ProfileDatapoint.Stride;
             }
         }
 
