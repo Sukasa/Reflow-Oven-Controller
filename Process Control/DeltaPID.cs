@@ -3,7 +3,7 @@ using System.Threading;
 using System.Reflection;
 using System.Runtime;
 
-namespace Reflow_Oven_Controller
+namespace Reflow_Oven_Controller.Process_Control
 {
 
     public delegate float GetCurrent();
@@ -22,6 +22,8 @@ namespace Reflow_Oven_Controller
         public GetCurrent GetCurrentValue;
 
         public float ProportionalBand { get; set; }
+        public float ProportionalGain { get; set; }
+
         public float Deadband { get; set; }
 
         public float Bias { get; set; }
@@ -32,6 +34,7 @@ namespace Reflow_Oven_Controller
         private float[] _DerivativeValues;
         private int _DerivativePtr;
         public float DerivativeGain { get; set; }
+        public float DerivativeBand { get; set; }
         public float DerivativeTime
         {
             get
@@ -42,6 +45,10 @@ namespace Reflow_Oven_Controller
             {
                 _DerivativeTime = value;
                 float[] NewBuffer = new float[(int)(_DerivativeTime * TargetHz)];
+                
+                if (_DerivativeValues == null)
+                    _DerivativeValues = NewBuffer;
+
                 Array.Copy(_DerivativeValues, NewBuffer, Math.Min(_DerivativeValues.Length, NewBuffer.Length));
                 _DerivativePtr = Math.Min(_DerivativePtr, NewBuffer.Length);
                 _DerivativeValues = NewBuffer;
@@ -126,9 +133,19 @@ namespace Reflow_Oven_Controller
                 _DerivativeValues[_DerivativePtr++] = CurrentValue;
                 _DerivativePtr %= _DerivativeValues.Length;
 
+                float D = (float)Math.Abs(Offset) - (Deadband / 2f);
+
+                if (D >= (DerivativeBand / 2f))
+                {
+                    D = 0f;
+                }
+                else
+                {
+                    D = 1f - (D / (DerivativeBand / 2f));
+                }
 
                 Derivative = _DerivativeValues[_LastDerivativePtr] - _DerivativeValues[_DerivativePtr];
-                Derivative *= DerivativeGain;
+                Derivative *= DerivativeGain * D;
 
                 if (ReverseActing)
                     Derivative *= -1f;
@@ -155,6 +172,7 @@ namespace Reflow_Oven_Controller
             GetCurrentValue = ValueGetter;
             Bias = 50f;
             TargetHz = 20;
+            ProportionalGain = 50f;
 
             PIDThread = new Thread(Run);
             PIDThread.Start();
