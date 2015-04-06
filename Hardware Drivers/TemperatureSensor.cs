@@ -7,7 +7,7 @@ using Microsoft.SPOT.Hardware;
 using SecretLabs.NETMF.Hardware;
 using SecretLabs.NETMF.Hardware.Netduino;
 
-namespace Reflow_Oven_Controller
+namespace Reflow_Oven_Controller.Hardware_Drivers
 {
     /// <summary>
     ///     MAX31855 Thermocouple IC driver
@@ -65,10 +65,10 @@ namespace Reflow_Oven_Controller
             else
             {
                 Fault = FaultCode.None;
-
-                // Temperature - 12 bits, signed, 0.0625 degree C resolution
-                ColdTemp = ((short)(Working & 0xFFF0)) / 256F;
             }
+
+            // Temperature - 12 bits, signed, 0.0625 degree C resolution
+            ColdTemp = ((short)(Working & 0xFFF0)) / 256F;
 
             return !IsFaulted;
         }
