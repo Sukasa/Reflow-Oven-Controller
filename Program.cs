@@ -1,10 +1,9 @@
 ﻿using System.Threading;
 using Microsoft.SPOT;
-using System.IO;
 using Microsoft.SPOT.Hardware;
+using Microsoft.SPOT.Net.NetworkInformation;
 using Reflow_Oven_Controller.Hardware_Drivers;
 using Reflow_Oven_Controller.Process_Control;
-using Microsoft.SPOT.Net.NetworkInformation;
 using Rinsen.WebServer;
 using Rinsen.WebServer.FileAndDirectoryServer;
 using SecretLabs.NETMF.Hardware.Netduino;
