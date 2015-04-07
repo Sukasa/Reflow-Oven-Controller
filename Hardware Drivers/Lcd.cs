@@ -49,9 +49,13 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
 
         }
 
+        public ushort CreateBrush(byte Red, byte Blue, byte Green)
+        {
 
+            return 0;
+        }
 
-        public void DrawLine()
+        public void DrawLine(int X1, int Y1, int X2, int Y2, ushort Brush)
         {
 
         }
