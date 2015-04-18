@@ -13,14 +13,17 @@ namespace Reflow_Oven_Controller
     public class OvenController
     {
         // Basic overview data
-        public static bool DoorAjar { get; private set; }
         public static float OvenTemperature { get; private set; }
         public static float BayTemperature { get; private set; }
         public static float LowerElementPower { get; set; }
         public static float UpperElementPower { get; set; }
-        public static uint FreeMem { get; private set; }
         public static float TemperatureSetpoint { get; set; }
+        public static float OvenFanSpeed { get; set; }
+
+        public static uint FreeMem { get; private set; }
+
         public static bool ElementsEnabled { get; set; }
+        public static bool DoorAjar { get; private set; }
 
         // Detailed sensor/interface access
         public static OvenKeypad Keypad { get; private set; }
@@ -28,10 +31,9 @@ namespace Reflow_Oven_Controller
         public static TemperatureSensor Sensor2 { get; private set; }
         public static CPUMonitor CPULoad { get; private set; }
         public static Lcd LCD { get; private set; }
-        public static ProfileController Profile;
+        public static ProfileController Profile { get; set; }
 
         // Internal stuff
-        private static InputPort _DoorSwitch;
         private static TemperatureSensor _Sensor1;
         private static TemperatureSensor _Sensor2;
         private static OvenKeypad _Keypad;
@@ -39,11 +41,12 @@ namespace Reflow_Oven_Controller
         private static ZeroCrossingSSR _Element1;
         private static ZeroCrossingSSR _Element2;
         private static ProfileController _Profile;
-
+        private static PWM OvenFanPWM { get; set; }
 
         private static DeltaPID _Element1PID;
         private static DeltaPID _Element2PID;
         private static OutputPort _ScanLED;
+        private static MCP23017 _PortExpander;
 
         //Web GUI stuff here
         private static WebServer WebServer;
@@ -56,7 +59,12 @@ namespace Reflow_Oven_Controller
 
             _ScanLED.Write(!_ScanLED.Read());
 
-            DoorAjar = _DoorSwitch.Read();
+            DoorAjar = (((int)_PortExpander.GPIOA & 0x01) == 0x01);
+
+            OvenFanSpeed = (float)System.Math.Min(TemperatureSetpoint / 100.0, 1.0);
+            _PortExpander.GPIOA.SetValue((byte)(OvenFanSpeed > 0.01f ? 0x80 : 0));
+            OvenFanPWM.DutyCycle = OvenFanSpeed;
+
             _Sensor1.Read();
             _Sensor2.Read();
 
@@ -71,7 +79,7 @@ namespace Reflow_Oven_Controller
 
 
             // TODO Process Control
-            _Element1PID.Setpoint = TemperatureSetpoint - 5; // Run the resistive element at a lower setpoint due to thermal inertia
+            _Element1PID.Setpoint = TemperatureSetpoint - 2; // Run the resistive element at a lower setpoint due to thermal inertia
             _Element2PID.Setpoint = TemperatureSetpoint;
 
             if (ElementsEnabled)
@@ -122,11 +130,38 @@ namespace Reflow_Oven_Controller
                     TemperatureSetpoint = 230f;
             }
 
+            
+
+            if (_Keypad.IsKeyPressed(OvenKeypad.Keys.Bake))
+            {
+                OvenFanPWM.DutyCycle = 0.0f;
+            }
+
+            if (_Keypad.IsKeyPressed(OvenKeypad.Keys.Broil))
+            {
+                OvenFanPWM.DutyCycle = 0.25f;
+            }
+
+            if (_Keypad.IsKeyPressed(OvenKeypad.Keys.Toast))
+            {
+                OvenFanPWM.DutyCycle = 0.5f;
+            }
+
+            if (_Keypad.IsKeyPressed(OvenKeypad.Keys.Warm))
+            {
+                OvenFanPWM.DutyCycle = 0.75f;
+            }
+
+            if (_Keypad.IsKeyPressed(OvenKeypad.Keys.Time))
+            {
+                OvenFanPWM.DutyCycle = 1.0f;
+            }
+
             if (_Keypad.IsKeyPressed(OvenKeypad.Keys.Down))
             {
                 TemperatureSetpoint -= 5f;
-                if (TemperatureSetpoint < 30f)
-                    TemperatureSetpoint = 30f;
+                if (TemperatureSetpoint < 0f)
+                    TemperatureSetpoint = 0f;
             }
 
             LastDoorState = DoorAjar;
@@ -135,19 +170,13 @@ namespace Reflow_Oven_Controller
         public void Init()
         {
             // Initialize I/O drivers and ports
-            _DoorSwitch = new InputPort(Pins.GPIO_PIN_A3, true, Port.ResistorMode.PullUp);
-
-
-
             _Keypad = new OvenKeypad(Pins.GPIO_PIN_D8, Pins.GPIO_PIN_D1, Pins.GPIO_PIN_D2, Pins.GPIO_PIN_D3,
-                                     Pins.GPIO_PIN_D4, Pins.GPIO_PIN_D5, Pins.GPIO_PIN_D6,
-                                     Pins.GPIO_PIN_D7, PWMChannels.PWM_PIN_D9); // D7
-
-
+                                     Pins.GPIO_PIN_D4, Pins.GPIO_PIN_D0, Pins.GPIO_PIN_D6,
+                                     Pins.GPIO_PIN_D7, PWMChannels.PWM_PIN_D9);
 
             _Sensor1 = new TemperatureSensor(Pins.GPIO_PIN_A0);
             _Sensor2 = new TemperatureSensor(Pins.GPIO_PIN_A1);
-            _LCD = new Lcd(Pins.GPIO_PIN_A2, PWMChannels.PWM_PIN_D10);
+            _LCD = new Lcd(Pins.GPIO_PIN_A2, Pins.GPIO_PIN_A3, PWMChannels.PWM_PIN_D10);
             _Profile = new ProfileController();
 
             Keypad = _Keypad;
@@ -156,7 +185,14 @@ namespace Reflow_Oven_Controller
             LCD = _LCD;
             Profile = _Profile;
 
-            _Element1 = new ZeroCrossingSSR(Pins.GPIO_PIN_A4); //A4
+            _PortExpander = new MCP23017();
+            _PortExpander.GPIOA.EnablePullups(0x7F);
+            _PortExpander.GPIOA.SetOutputs(0x80);
+
+            OvenFanPWM = new PWM(PWMChannels.PWM_PIN_D5, 20000, 0.0, false);
+            OvenFanPWM.Start();
+
+            _Element1 = new ZeroCrossingSSR(Pins.GPIO_PIN_A4);
             _Element2 = new ZeroCrossingSSR(Pins.GPIO_PIN_A5);
 
             CPULoad = new CPUMonitor();
@@ -165,29 +201,28 @@ namespace Reflow_Oven_Controller
             _Element2PID = new DeltaPID(() => OvenTemperature);
 
             // Resistive Element (Bottom)
-            _Element1PID.ProportionalBand = 40;
-            _Element1PID.IntegralRate = 6;
-            _Element1PID.IntegralResetBand = 18;
+            _Element1PID.ProportionalBand = 15;
+            _Element1PID.IntegralRate = 7;
+            _Element1PID.IntegralResetBand = 15;
             _Element1PID.TargetHz = 10;
             _Element1PID.ReverseActing = true;
             _Element1PID.DerivativeTime = 19f;
-            _Element1PID.DerivativeGain = 7f;
+            _Element1PID.DerivativeGain = 6f;
             _Element1PID.DerivativeBand = 95f;
             _Element1PID.ProportionalGain = 60f;
 
             // Quartz Element (Top)
-            _Element2PID.ProportionalBand = 11;
+            _Element2PID.ProportionalBand = 10;
             _Element2PID.IntegralRate = 8;
-            _Element2PID.IntegralResetBand = 15;
+            _Element2PID.IntegralResetBand = 11;
             _Element2PID.TargetHz = 10;
             _Element2PID.ReverseActing = true;
             _Element2PID.DerivativeTime = 14f;
-            _Element2PID.DerivativeGain = 8f;
+            _Element2PID.DerivativeGain = 6f;
             _Element2PID.DerivativeBand = 80f;
-            _Element2PID.ProportionalGain = 60f;
+            _Element2PID.ProportionalGain = 55f;
 
             Thread.CurrentThread.Priority = ThreadPriority.AboveNormal; // Kick the main control thread to high priority, as we do all hardware I/O and "heavy lifting" on this thread
-
 
             if (InternetConnectionAvailable())
             {
@@ -216,6 +251,8 @@ namespace Reflow_Oven_Controller
             Controller.Init();
 
             Debug.Print("Started");
+
+            
 
             while (true)
             {
