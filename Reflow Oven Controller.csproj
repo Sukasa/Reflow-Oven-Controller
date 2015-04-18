@@ -35,7 +35,10 @@
   </PropertyGroup>
   <Import Project="$(NetMfTargetsBaseDir)$(TargetFrameworkVersion)\CSharp.Targets" />
   <ItemGroup>
+    <Compile Include="Hardware Drivers\I2CBus.cs" />
     <Compile Include="Hardware Drivers\Lcd.cs" />
+    <Compile Include="Hardware Drivers\MCP23017.cs" />
+    <None Include="InitData\LCDInit.bin" />
     <Compile Include="Process Control\CPUMonitor.cs" />
     <Compile Include="Process Control\DeltaPID.cs" />
     <Compile Include="Hardware Drivers\OvenKeypad.cs" />
