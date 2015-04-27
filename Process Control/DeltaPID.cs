@@ -5,14 +5,7 @@ namespace Reflow_Oven_Controller.Process_Control
 {
 
     public delegate float GetCurrent();
-    /// <summary>
-    ///     PID Controller based on the Delta Controls variation of PID .
-    /// </summary>
-    /// <remarks>
-    ///     Unlike a "standard" PID loop, the Delta Controls PID controller is a simpler concept designed for ease of use and deployment.  It is not as accurate as true PID, but can be deployed and tuned
-    ///     in minutes or less.  It is designed for applications with slower response times, primarily in HVAC controls.  This is not the "true" Delta implementation, but is recreated from descriptions of how
-    ///     the Delta PID code works.
-    /// </remarks>
+
     class DeltaPID
     {
 
