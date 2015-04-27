@@ -50,10 +50,24 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
 
         public void LoadImage(string ImageFilename)
         {
+            LoadImage(ImageFilename, 0, 0, 320, 240);
+        }
+
+        public void LoadImage(string ImageFilename, int X, int Y, int Width, int Height)
+        {
             SPIBus Bus = SPIBus.Instance();
             Bus.SelectDevice(_Device);
 
-            SetWindow(0, 0, 240, 320);
+            SetWindow(Y, X, Y + Height - 1, X + Width - 1);
+
+            LoadImageFragment(ImageFilename);
+        }
+
+        private void LoadImageFragment(string ImageFilename)
+        {
+            SPIBus Bus = SPIBus.Instance();
+            Bus.SelectDevice(_Device);
+
             WriteCommand(0x2C); // 2C == Memory Write
 
             int Offset = 0;
