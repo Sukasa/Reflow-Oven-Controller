@@ -1,4 +1,5 @@
-﻿using System.Threading;
+﻿using System;
+using System.Threading;
 using Microsoft.SPOT;
 using Microsoft.SPOT.Hardware;
 using Microsoft.SPOT.Net.NetworkInformation;
@@ -25,6 +26,8 @@ namespace Reflow_Oven_Controller
         public static bool ElementsEnabled { get; set; }
         public static bool DoorAjar { get; private set; }
 
+        public static FaultCodes Faults { get; set; }
+
         // Detailed sensor/interface access
         public static OvenKeypad Keypad { get; private set; }
         public static TemperatureSensor Sensor1 { get; private set; }
@@ -32,6 +35,9 @@ namespace Reflow_Oven_Controller
         public static CPUMonitor CPULoad { get; private set; }
         public static Lcd LCD { get; private set; }
         public static ProfileController Profile { get; set; }
+        public static MCP23017 PortExpander { get; private set; }
+
+        public static OutputPort Test { get; set; }
 
         // Internal stuff
         private static TemperatureSensor _Sensor1;
@@ -41,7 +47,8 @@ namespace Reflow_Oven_Controller
         private static ZeroCrossingSSR _Element1;
         private static ZeroCrossingSSR _Element2;
         private static ProfileController _Profile;
-        private static PWM OvenFanPWM { get; set; }
+        private static PWM _OvenFanPWM;
+        private static UserInterface _Interface;
 
         private static DeltaPID _Element1PID;
         private static DeltaPID _Element2PID;
@@ -61,24 +68,99 @@ namespace Reflow_Oven_Controller
 
             DoorAjar = (((int)_PortExpander.GPIOA & 0x01) == 0x01);
 
-            OvenFanSpeed = (float)System.Math.Min(TemperatureSetpoint / 100.0, 1.0);
-            _PortExpander.GPIOA.SetValue((byte)(OvenFanSpeed > 0.01f ? 0x80 : 0));
-            OvenFanPWM.DutyCycle = OvenFanSpeed;
+            if (OvenFanSpeed >= 0.01f)
+            {
+                _PortExpander.GPIOA.SetBits(0x80);
+            }
+            else
+            {
+                _PortExpander.GPIOA.ClearBits(0x80);
+            }
+            _OvenFanPWM.DutyCycle = OvenFanSpeed;
 
             _Sensor1.Read();
             _Sensor2.Read();
 
-            //TODO handle sensor faults
+            if (_Sensor1.Fault != TemperatureSensor.FaultCode.None)
+            {
+                Faults |= FaultCodes.Therm1Fail;
+            }
+            else
+            {
+                Faults &= ~FaultCodes.Therm1Fail;
+            }
 
-            OvenTemperature = (_Sensor2.HotTemp + _Sensor1.HotTemp) / 2f;
-            BayTemperature = (_Sensor2.ColdTemp + _Sensor1.ColdTemp) / 2f;
+            if (_Sensor1.ColdTemp == 0 && _Sensor1.HotTemp == 0)
+            {
+                Faults |= FaultCodes.TSense1Fail | FaultCodes.Therm1Fail;
+            }
+            else
+            {
+                Faults &= ~FaultCodes.TSense1Fail;
+            }
 
+            if (_Sensor2.Fault != TemperatureSensor.FaultCode.None)
+            {
+                Faults |= FaultCodes.Therm2Fail;
+            }
+            else
+            {
+                Faults &= ~FaultCodes.Therm2Fail;
+            }
+
+            if (_Sensor2.ColdTemp == 0 && _Sensor2.HotTemp == 0)
+            {
+                Faults |= FaultCodes.TSense2Fail | FaultCodes.Therm2Fail;
+            }
+            else
+            {
+                Faults &= ~FaultCodes.TSense2Fail;
+            }
+
+            switch (Faults & (FaultCodes.Therm1Fail | FaultCodes.Therm2Fail))
+            {
+                case 0:
+                    // Both sensors work
+                    OvenTemperature = (_Sensor2.HotTemp + _Sensor1.HotTemp) / 2f;
+                    break;
+                case FaultCodes.Therm1Fail:
+                    // Use sensor 2 only
+                    OvenTemperature = _Sensor2.HotTemp;
+                    break;
+                case FaultCodes.Therm2Fail:
+                    // Use sensor 1 only
+                    OvenTemperature = _Sensor1.HotTemp;
+                    break;
+                default:
+                    // Fail hard - no working temperature sensors
+                    break;
+            }
+
+            switch (Faults & (FaultCodes.TSense1Fail | FaultCodes.TSense2Fail))
+            {
+                case 0:
+                    // Both sensors work
+                    BayTemperature = (_Sensor2.ColdTemp + _Sensor1.ColdTemp) / 2f;
+                    break;
+                case FaultCodes.TSense1Fail:
+                    // Use sensor 2 only
+                    BayTemperature = _Sensor2.ColdTemp;
+                    break;
+                case FaultCodes.TSense2Fail:
+                    // Use sensor 1 only
+                    BayTemperature = _Sensor1.ColdTemp;
+                    break;
+                default:
+                    // Fail hard - no working temperature sensors
+                    break;
+            }
 
             // TODO Local user interface
             _Keypad.Scan();
 
 
             // TODO Process Control
+
             _Element1PID.Setpoint = TemperatureSetpoint - 2; // Run the resistive element at a lower setpoint due to thermal inertia
             _Element2PID.Setpoint = TemperatureSetpoint;
 
@@ -96,6 +178,8 @@ namespace Reflow_Oven_Controller
             _Element1.PowerLevel = LowerElementPower / 100f;
             _Element2.PowerLevel = UpperElementPower / 100f;
 
+            _Interface.Tick();
+
             if (_Keypad.IsKeyPressed(OvenKeypad.Keys.Any))
             {
                 _Keypad.Beep(OvenKeypad.BeepLength.Short);
@@ -107,6 +191,7 @@ namespace Reflow_Oven_Controller
                 _Keypad.LEDControl = OvenKeypad.LEDState.On;
                 _Element1PID.Bias = 50f;
                 _Element2PID.Bias = 50f;
+                OvenFanSpeed = 0.0f;
                 ElementsEnabled = true;
             }
 
@@ -114,6 +199,7 @@ namespace Reflow_Oven_Controller
             {
                 _Keypad.LEDControl = OvenKeypad.LEDState.Off;
                 ElementsEnabled = false;
+                OvenFanSpeed = 0.0f;
             }
 
             if (DoorAjar && !LastDoorState && _Keypad.LEDControl != OvenKeypad.LEDState.Off)
@@ -130,31 +216,29 @@ namespace Reflow_Oven_Controller
                     TemperatureSetpoint = 230f;
             }
 
-            
-
             if (_Keypad.IsKeyPressed(OvenKeypad.Keys.Bake))
             {
-                OvenFanPWM.DutyCycle = 0.0f;
+                OvenFanSpeed = 0.0f;
             }
 
             if (_Keypad.IsKeyPressed(OvenKeypad.Keys.Broil))
             {
-                OvenFanPWM.DutyCycle = 0.25f;
+                OvenFanSpeed = 0.25f;
             }
 
             if (_Keypad.IsKeyPressed(OvenKeypad.Keys.Toast))
             {
-                OvenFanPWM.DutyCycle = 0.5f;
+                OvenFanSpeed = 0.5f;
             }
 
             if (_Keypad.IsKeyPressed(OvenKeypad.Keys.Warm))
             {
-                OvenFanPWM.DutyCycle = 0.75f;
+                OvenFanSpeed = 0.75f;
             }
 
-            if (_Keypad.IsKeyPressed(OvenKeypad.Keys.Time))
+            if (_Keypad.IsKeyPressed(OvenKeypad.Keys.Temp))
             {
-                OvenFanPWM.DutyCycle = 1.0f;
+                OvenFanSpeed = 1.0f;
             }
 
             if (_Keypad.IsKeyPressed(OvenKeypad.Keys.Down))
@@ -176,21 +260,31 @@ namespace Reflow_Oven_Controller
 
             _Sensor1 = new TemperatureSensor(Pins.GPIO_PIN_A0);
             _Sensor2 = new TemperatureSensor(Pins.GPIO_PIN_A1);
-            _LCD = new Lcd(Pins.GPIO_PIN_A2, Pins.GPIO_PIN_A3, PWMChannels.PWM_PIN_D10);
+
             _Profile = new ProfileController();
+
+            OutputPort.ReservePin(Pins.GPIO_PIN_D13, false);
+            Test = new OutputPort(Pins.GPIO_PIN_D13, false);
+            OutputPort.ReservePin(Pins.GPIO_PIN_D13, false);
 
             Keypad = _Keypad;
             Sensor1 = _Sensor1;
             Sensor2 = _Sensor2;
-            LCD = _LCD;
             Profile = _Profile;
-
+            
             _PortExpander = new MCP23017();
             _PortExpander.GPIOA.EnablePullups(0x7F);
             _PortExpander.GPIOA.SetOutputs(0x80);
 
-            OvenFanPWM = new PWM(PWMChannels.PWM_PIN_D5, 20000, 0.0, false);
-            OvenFanPWM.Start();
+            PortExpander = _PortExpander;
+
+            _LCD = new Lcd(Pins.GPIO_PIN_A2, Pins.GPIO_PIN_A3, PWMChannels.PWM_PIN_D10);
+            LCD = _LCD;
+            _LCD.Init();
+            _Interface = new UserInterface();
+            
+            _OvenFanPWM = new PWM(PWMChannels.PWM_PIN_D5, 20000, 0.0, false);
+            _OvenFanPWM.Start();
 
             _Element1 = new ZeroCrossingSSR(Pins.GPIO_PIN_A4);
             _Element2 = new ZeroCrossingSSR(Pins.GPIO_PIN_A5);
@@ -240,6 +334,10 @@ namespace Reflow_Oven_Controller
                     Debug.Print("Unable to get NTP time");
                 }
             }
+            else
+            {
+                Faults |= FaultCodes.NoNetConnection;
+            }
 
 
             _ScanLED = new OutputPort(Pins.ONBOARD_LED, false);
@@ -251,8 +349,6 @@ namespace Reflow_Oven_Controller
             Controller.Init();
 
             Debug.Print("Started");
-
-            
 
             while (true)
             {
