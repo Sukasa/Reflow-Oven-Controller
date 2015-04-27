@@ -17,7 +17,7 @@ namespace Reflow_Oven_Controller
         private OutputPort _LED;
         private PWM _Buzzer;
         private Thread _LEDThread;
-
+        private DateTime _BeepTime;
 
         [Flags()]
         public enum Keys
@@ -36,7 +36,8 @@ namespace Reflow_Oven_Controller
             Broil = 2,
             Toast = 1
         }
-        public enum LEDState {
+        public enum LEDState
+        {
             Off = 0,
             SlowFlash = 450,
             FastFlash = 120,
@@ -58,11 +59,19 @@ namespace Reflow_Oven_Controller
 
         public LEDState LEDControl { get; set; }
 
-        
+        public DateTime LastBeepTime
+        {
+            get
+            {
+                return _BeepTime;
+            }
+        }
+
         public void Beep(BeepLength Length)
         {
             _BeepTimeLeft = Math.Max(_BeepTimeLeft, (int)Length);
             _Buzzer.Start();
+            _BeepTime = DateTime.Now;
         }
 
         public enum BeepLength : int
@@ -75,12 +84,14 @@ namespace Reflow_Oven_Controller
         private int _BeepTimeLeft;
         private int _LEDTimeLeft;
 
-        public void KeypadThread() {
+        public void KeypadThread()
+        {
             _LEDTimeLeft = 310;
 
             int SleepTime;
 
-            while (true) {
+            while (true)
+            {
                 if (_BeepTimeLeft <= 0)
                 {
                     SleepTime = _LEDTimeLeft;
@@ -139,14 +150,14 @@ namespace Reflow_Oven_Controller
             _Rows[2] = new TristatePort(RowPin3, false, false, Port.ResistorMode.Disabled);
             _Rows[3] = new TristatePort(RowPin4, false, false, Port.ResistorMode.Disabled);
 
-            for (int Row = 0; Row < 4; Row++ )
+            for (int Row = 0; Row < 4; Row++)
                 if (_Rows[Row].Active)   // This if statement works around a firmware design choice to THROW AN EXCEPTION if you try to set active to the value
                     _Rows[Row].Active = false; // it already is.  What kind of design choice is that?!
 
             _Columns[0] = new InputPort(ColumnPin1, false, Port.ResistorMode.PullDown);
             _Columns[1] = new InputPort(ColumnPin2, false, Port.ResistorMode.PullDown);
             _Columns[2] = new InputPort(ColumnPin3, false, Port.ResistorMode.PullDown);
-            
+
             _LED = new OutputPort(LEDPin, true);
             _Buzzer = new PWM(BuzzerPin, 2300.0, 0.5, false);
 
