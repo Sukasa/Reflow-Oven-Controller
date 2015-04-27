@@ -73,8 +73,7 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
 
         public void Write(byte[] Data, int StartOffset, int Count)
         {
-            byte[] Dummy = new byte[Count];
-            DeviceBus.WriteRead(Data, StartOffset, Count, Dummy, 0, Count, 0);
+            DeviceBus.WriteRead(Data, StartOffset, Count, null, 0, 0, Count + 1);
         }
 
         public byte[] ReadWrite(byte[] Data)
