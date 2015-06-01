@@ -6,7 +6,7 @@ namespace Reflow_Oven_Controller.Process_Control
 
     public delegate float GetCurrent();
 
-    class DeltaPID
+    public class DeltaPID
     {
 
         public float Setpoint { get; set; }
