@@ -162,7 +162,7 @@ namespace Reflow_Oven_Controller.Process_Control
             // Profile is just a series of lines, though whether to draw one angled line or a digital-ish line depends on the flag of each datapoint.
 
             TimeSpan TotalTime = _Datapoints[_Datapoints.Length - 1].TimeOffset;
-            ushort RedBrush = OvenController.LCD.CreateBrush(255, 0, 0);
+            int RedBrush = OvenController.LCD.CreateBrush(255, 0, 0);
 
             for (int idx = 0; idx < _Datapoints.Length - 1; idx++)
             {

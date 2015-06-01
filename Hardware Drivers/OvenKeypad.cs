@@ -1,12 +1,6 @@
-using System;
-using System.Diagnostics;
-using System.Net;
-using System.Net.Sockets;
-using System.Threading;
-
 using Microsoft.SPOT.Hardware;
-using SecretLabs.NETMF.Hardware;
-using SecretLabs.NETMF.Hardware.Netduino;
+using System;
+using System.Threading;
 
 namespace Reflow_Oven_Controller
 {
@@ -14,7 +8,7 @@ namespace Reflow_Oven_Controller
     {
         private TristatePort[] _Rows;
         private InputPort[] _Columns;
-        private OutputPort _LED;
+        public OutputPort _LED;
         private PWM _Buzzer;
         private Thread _LEDThread;
         private DateTime _BeepTime;
@@ -24,6 +18,7 @@ namespace Reflow_Oven_Controller
         {
             None = 0,
             Any = 65535,
+            Presets = 63,
 
             Stop = 512,
             Start = 256,
@@ -49,7 +44,7 @@ namespace Reflow_Oven_Controller
 
         public bool IsKeyPressed(Keys Key)
         {
-            return (KeysPressed & Key) == Key;
+            return (KeysPressed & Key) != 0;
         }
 
         public bool IsKeyDown(Keys Key)
@@ -69,9 +64,12 @@ namespace Reflow_Oven_Controller
 
         public void Beep(BeepLength Length)
         {
+            _BeepTime = DateTime.Now;
+            if (Length == 0)
+                return;
+
             _BeepTimeLeft = Math.Max(_BeepTimeLeft, (int)Length);
             _Buzzer.Start();
-            _BeepTime = DateTime.Now;
         }
 
         public enum BeepLength : int
@@ -87,7 +85,7 @@ namespace Reflow_Oven_Controller
         public void KeypadThread()
         {
             _LEDTimeLeft = 310;
-
+            Thread.CurrentThread.Priority = ThreadPriority.Highest;
             int SleepTime;
 
             while (true)
