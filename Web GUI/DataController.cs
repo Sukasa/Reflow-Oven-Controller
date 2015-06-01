@@ -36,6 +36,12 @@ namespace Reflow_Oven_Controller.Web_GUI
             SB.Append(",TSense2:");
             SB.Append(OvenController.Sensor2.HotTemp.ToString());
 
+            SB.Append(",Running:");
+            SB.Append(OvenController.ElementsEnabled.ToString());
+
+            SB.Append(",Fan2:");
+            SB.Append(OvenController.OvenFanSpeed.ToString());
+
             SB.Append("}");
             SetHtmlResult(SB.ToString());
         }
