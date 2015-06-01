@@ -53,7 +53,7 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
         /// <returns></returns>
         public SPI.Configuration CreateBusDevice(Cpu.Pin CS, bool ActiveState = false, uint Speed = 1000)
         {
-            SPI.Configuration NewDevice = new SPI.Configuration(CS, ActiveState, 0, 0, false, true, Speed, SPI_Devices.SPI1);
+            SPI.Configuration NewDevice = new SPI.Configuration(CS, ActiveState, 100, 100, false, true, Speed, SPI_Devices.SPI1);
 
             if (DeviceBus == null)
                 DeviceBus = new SPI(NewDevice);
@@ -92,7 +92,6 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
 
         public void ReadWrite(byte[] WriteData, byte[] ReadData, int WriteOffset, int WriteCount, int ReadOffset, int ReadCount, int ReadDelay)
         {
-
             DeviceBus.WriteRead(WriteData, WriteOffset, WriteCount, ReadData, ReadOffset, ReadCount, ReadDelay);
         }
 
