@@ -33,6 +33,20 @@
   <PropertyGroup>
     <StartupObject>Reflow_Oven_Controller.OvenController</StartupObject>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug-Utilities|AnyCPU'">
+    <OutputPath>bin\Debug-Utilities\</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug-utils|AnyCPU'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\Debug-utils\</OutputPath>
+    <DefineConstants>DEBUG;TRACE,MF_FRAMEWORK_VERSION_V4_3</DefineConstants>
+    <NoStdLib>true</NoStdLib>
+    <DebugType>full</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <UseVSHostingProcess>false</UseVSHostingProcess>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
   <Import Project="$(NetMfTargetsBaseDir)$(TargetFrameworkVersion)\CSharp.Targets" />
   <ItemGroup>
     <Compile Include="Hardware Drivers\I2CBus.cs" />
@@ -53,6 +67,7 @@
     <Compile Include="Hardware Drivers\TemperatureSensor.cs" />
     <Compile Include="Hardware Drivers\ZeroCrossingSSR.cs" />
     <Compile Include="Web GUI\DataController.cs" />
+    <Compile Include="Web GUI\FileController.cs" />
     <Compile Include="Web GUI\WebServer.cs" />
     <None Include="WWW\Style.css" />
     <None Include="WWW\Default.js" />
