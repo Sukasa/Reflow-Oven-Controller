@@ -30,14 +30,14 @@ namespace Reflow_Oven_Controller.Process_Control
         }
 
         public void ToBytes(byte[] OutputBuffer, int Offs) {
-            Array.Copy(BitConverter.GetBytes((int)(TimeOffset.Ticks / (TimeSpan.TicksPerMillisecond * 1000L))), 0, OutputBuffer, Offs, 4);
+            Array.Copy(BitConverter.GetBytes(TimeOffset.Seconds + (TimeOffset.Minutes * 60) + (TimeOffset.Hours * 3600) + (TimeOffset.Days * 86400)), 0, OutputBuffer, Offs, 4);
             Array.Copy(BitConverter.GetBytes(Temperature), 0, OutputBuffer, Offs + 4, 4);
             OutputBuffer[Offs + 5] = (byte)Flags;
         }
 
         public ProfileDatapoint(byte[] Buffer, int Offs)
         {
-            TimeOffset = new TimeSpan(((long)BitConverter.ToInt32(Buffer, Offs) * (TimeSpan.TicksPerMillisecond * 1000L)));
+            TimeOffset = new TimeSpan(0, 0, BitConverter.ToInt32(Buffer, Offs));
             Temperature = BitConverter.ToSingle(Buffer, Offs + 4);
             Flags = (DatapointFlags)Buffer[Offs + 5];
         }
