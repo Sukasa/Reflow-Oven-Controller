@@ -40,6 +40,7 @@ namespace Reflow_Oven_Controller.Process_Control
                     _last = now;
                     _idle = 0;
                 }
+
             }
         }
 

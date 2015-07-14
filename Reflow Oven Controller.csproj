@@ -29,6 +29,8 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
   <PropertyGroup>
     <StartupObject>Reflow_Oven_Controller.OvenController</StartupObject>
@@ -93,7 +95,9 @@
       <Name>Rinsen.WebServer</Name>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Folder Include="Profiles\" />
+  </ItemGroup>
   <ItemGroup>
     <None Include="WWW\index.html" />
   </ItemGroup>
