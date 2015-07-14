@@ -1,8 +1,8 @@
 using Microsoft.SPOT.Hardware;
 using SecretLabs.NETMF.Hardware.Netduino;
+using System;
 using System.IO;
 using System.Threading;
-using System;
 
 namespace Reflow_Oven_Controller.Hardware_Drivers
 {
@@ -69,8 +69,10 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
 
             SetWindow(X, Y, Width, Height);
 
+            uint FreeMem = Microsoft.SPOT.Debug.GC(false);
+
             ThreadPriority Prior = Thread.CurrentThread.Priority;
-            Thread.CurrentThread.Priority = ThreadPriority.Highest;
+            Thread.CurrentThread.Priority = ThreadPriority.AboveNormal;
 
             WriteCommand(WriteMem); // 2C == Memory Write
             _ChipSelect.Write(true);
