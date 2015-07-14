@@ -44,24 +44,32 @@ namespace Reflow_Oven_Controller
         /// <param name="State"></param>
         private static void Tick(object State)
         {
-            ZeroCrossingSSR SSR = (ZeroCrossingSSR)State;
+            try
+            {
+                ZeroCrossingSSR SSR = (ZeroCrossingSSR)State;
 
-            if (SSR._PowerLevel < 0.01)
-            {
-                SSR._Tracking = 0;
-                SSR._Output.Write(false);
-                return;
-            }
+                if (SSR._PowerLevel < 0.01)
+                {
+                    SSR._Tracking = 0;
+                    SSR._Output.Write(false);
+                    return;
+                }
 
-            if (SSR._Tracking <= 0f)
-            {
-                SSR._Tracking = (float)Math.Max(SSR._Tracking + SSR._Increment, -1.0);
-                SSR._Output.Write(true);
+                if (SSR._Tracking <= 0f)
+                {
+                    SSR._Tracking = (float)Math.Max(SSR._Tracking + SSR._Increment, -1.0);
+                    SSR._Output.Write(true);
+                }
+                else
+                {
+                    SSR._Tracking -= 1f;
+                    SSR._Output.Write(false);
+                }
             }
-            else
+            catch
             {
-                SSR._Tracking -= 1f;
-                SSR._Output.Write(false);
+                // I don't care the error - shut down SSRs immediately on fault.
+                ((ZeroCrossingSSR)State)._Output.Write(false);
             }
         }
 
