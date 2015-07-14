@@ -18,11 +18,12 @@ namespace Reflow_Oven_Controller.Process_Control
                 _StartTime = DateTime.Now - value;
             }
         }
-
         public ProcessState CurrentState { get; set; }
-
         private DateTime _StartTime;
+        private string[] _ProfilePresets;
+        private string[] _Profiles;
 
+        // Currently-running profile
         private ProfileDatapoint[] _Datapoints;
         private int _CurrentDatapoint;
 
@@ -34,16 +35,78 @@ namespace Reflow_Oven_Controller.Process_Control
             Finished
         }
 
+        public string[] Profiles
+        {
+            get
+            {
+                return _Profiles;
+            }
+        }
+
+
         public ProfileController()
         {
             CurrentState = ProcessState.Stopped;
+
+            _Profiles = Directory.GetFiles(@"SD\Oven\Profiles");
+
+            for (int X = _Profiles.Length - 1; X >= 0; X--)
+            {
+                _Profiles[X] = Path.GetFileName(_Profiles[X]);
+            }
+
+            if (File.Exists(@"SD\Oven\Presets"))
+            {
+                using (FileStream FS = File.OpenRead(@"SD\Oven\Presets"))
+                {
+                    using (StreamReader SR = new StreamReader(FS))
+                    {
+                        _ProfilePresets = SR.ReadToEnd().Split('\n');
+                        for (int x = 0; x < _ProfilePresets.Length; x++)
+                        {
+                            _ProfilePresets[x] = _ProfilePresets[x].TrimEnd('\r');
+                        }
+                    }
+                }
+            }
+            else
+            {
+                _ProfilePresets = new string[] { "", "", "", "", "", "" };
+            }
+
+
+            // Scan for new profiles that need to be parsed from text into binary data
+
+        }
+
+        public void SetProfilePreset(string Preset, int Slot)
+        {
+            if (Slot < 0 || Slot >= 6)
+                return;
+
+            _ProfilePresets[Slot] = Preset;
+            if (File.Exists(@"SD\Oven\Presets"))
+                File.Delete(@"SD\Oven\Presets");
+
+            using (FileStream FS = File.Open(@"SD\Oven\Presets", FileMode.CreateNew))
+            {
+                using (StreamWriter SR = new StreamWriter(FS))
+                {
+                    SR.WriteLine(_ProfilePresets[0]);
+                    SR.WriteLine(_ProfilePresets[1]);
+                    SR.WriteLine(_ProfilePresets[2]);
+                    SR.WriteLine(_ProfilePresets[3]);
+                    SR.WriteLine(_ProfilePresets[4]);
+                    SR.Write(_ProfilePresets[5]);
+                }
+            }
         }
 
         public void LoadProfile(string ProfileName)
         {
             byte[] Buffer = new byte[512];
 
-            using (FileStream Stream = new FileStream("\\SD\\Oven\\Profile" + ProfileName, FileMode.Open))
+            using (FileStream Stream = new FileStream("\\SD\\Oven\\Profiles\\" + ProfileName, FileMode.Open))
             {
                 Stream.Read(Buffer, 0, 512);
             }
@@ -74,8 +137,6 @@ namespace Reflow_Oven_Controller.Process_Control
             if (OvenController.DoorAjar)
                 return false;
 
-
-
             // Clear to start
             _StartTime = DateTime.Now;
             OvenController.ElementsEnabled = true;
@@ -83,7 +144,12 @@ namespace Reflow_Oven_Controller.Process_Control
             OvenController.Keypad.LEDControl = OvenKeypad.LEDState.On;
             return true;
         }
-        
+
+        public void ParseProfile(string ProfileData, string OutputFilename)
+        {
+
+        }
+
         public void Tick()
         {
             if (CurrentState != ProcessState.Running)
