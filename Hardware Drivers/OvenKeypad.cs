@@ -9,9 +9,23 @@ namespace Reflow_Oven_Controller
         private TristatePort[] _Rows;
         private InputPort[] _Columns;
         public OutputPort _LED;
-        private PWM _Buzzer;
+        public PWM Buzzer;
         private Thread _LEDThread;
         private DateTime _BeepTime;
+
+        private bool _PlayingTune;
+        private int _TunePtr;
+        private double[] Frequencies = { 329.63, 349.23, 369.99, 392.00,
+                                         415.30, 440.00, 466.16, 493.88, 523.25, 554.37,
+                                         587.33, 622.25, 659.25, 698.46, 739.99, 783.99};
+        private int TimeBase = 180;
+
+        private byte[] Tune = {                   
+         0x25, 0x48, 0x2A, 0x3C, 0x1D, 0x2C, 0x4A, 0x27, 0x33, 0x15, 0x27, 0x48, 0x25, 0x35, 0x14, 0x25, 0x47, 0x24, 0x40, 0x25, 0x48, 0x2A, 0x3C, 0x1D,
+         0x2C, 0x4A, 0x27, 0x33, 0x15, 0x27, 0x38, 0x17, 0x25, 0x34, 0x12, 0x23, 0x65, 0x65, 0x6F, 0x3F, 0x1E, 0x2C, 0x4A, 0x27, 0x33, 0x15, 0x27, 0x48,
+         0x25, 0x35, 0x14, 0x25, 0x47, 0x24, 0x60, 0x6F, 0x3F, 0x1E, 0x2C, 0x4A, 0x27, 0x33, 0x15, 0x27, 0x38, 0x17, 0x25, 0x34, 0x12, 0x23, 0x65, 0x45, 0xF1
+                              };
+
 
         [Flags()]
         public enum Keys
@@ -33,10 +47,13 @@ namespace Reflow_Oven_Controller
         }
         public enum LEDState
         {
+            // Off and On are symbolic constants
             Off = 0,
-            SlowFlash = 450,
+            On = 1,
+
+            // FastFlast and SlowFlash are millisecond timings
             FastFlash = 120,
-            On = 2
+            SlowFlash = 450
         }
 
         public Keys KeysDown { get; set; }
@@ -65,22 +82,31 @@ namespace Reflow_Oven_Controller
         public void Beep(BeepLength Length)
         {
             _BeepTime = DateTime.Now;
-            if (Length == 0)
+            if (Length == 0 || _PlayingTune)
                 return;
 
             _BeepTimeLeft = Math.Max(_BeepTimeLeft, (int)Length);
-            _Buzzer.Start();
+            Buzzer.Start();
         }
 
         public enum BeepLength : int
         {
-            Long = 1600,
-            Medium = 650,
-            Short = 250
+            Long = 900,
+            Medium = 450,
+            Short = 175
         }
 
         private int _BeepTimeLeft;
         private int _LEDTimeLeft;
+
+        public void StartTune()
+        {
+            _PlayingTune = true;
+            _TunePtr = -1;
+            _BeepTimeLeft = 1;
+
+            Buzzer.Stop();
+        }
 
         public void KeypadThread()
         {
@@ -90,6 +116,9 @@ namespace Reflow_Oven_Controller
 
             while (true)
             {
+
+
+
                 if (_BeepTimeLeft <= 0)
                 {
                     SleepTime = _LEDTimeLeft;
@@ -99,7 +128,7 @@ namespace Reflow_Oven_Controller
                     SleepTime = Math.Min(_LEDTimeLeft, _BeepTimeLeft);
                 }
 
-                SleepTime = Math.Min(50, SleepTime);
+                SleepTime = Math.Min(15, SleepTime);
 
                 Thread.Sleep(SleepTime);
 
@@ -128,8 +157,32 @@ namespace Reflow_Oven_Controller
                     _BeepTimeLeft -= SleepTime;
                     if (_BeepTimeLeft <= 0)
                     {
-                        _BeepTimeLeft = 0;
-                        _Buzzer.Stop();
+                        if (_PlayingTune)
+                        {
+                            _TunePtr++;
+                            if (_TunePtr >= Tune.Length)
+                                _TunePtr = 0;
+
+                            if ((Tune[_TunePtr] & 0xf) != 1)
+                            {
+                                Buzzer.Frequency = Frequencies[(Tune[_TunePtr] & 0xf)];
+                                Buzzer.Start();
+                            }
+                            else
+                            {
+                                Buzzer.Stop();
+                            }
+                            _BeepTimeLeft = TimeBase * (Tune[_TunePtr] >> 4);
+                        }
+                        else
+                        {
+                            _BeepTimeLeft = 0;
+                            Buzzer.Stop();
+                        }
+                    }
+                    else if (_BeepTimeLeft <= 30 && _PlayingTune)
+                    {
+                        Buzzer.Stop();
                     }
                 }
 
@@ -157,7 +210,7 @@ namespace Reflow_Oven_Controller
             _Columns[2] = new InputPort(ColumnPin3, false, Port.ResistorMode.PullDown);
 
             _LED = new OutputPort(LEDPin, true);
-            _Buzzer = new PWM(BuzzerPin, 2300.0, 0.5, false);
+            Buzzer = new PWM(BuzzerPin, 2300.0, 0.5, false);
 
             _LEDThread = new Thread(KeypadThread);
             _LEDThread.Start();
@@ -186,7 +239,7 @@ namespace Reflow_Oven_Controller
                 _Rows[Row].Write(false);
                 _Rows[Row].Active = false;
             }
-            if (NumKeys < 3) // Anything more than 3 is potentially misreading, so don't store
+            if (NumKeys < 4) // Anything more than 3 is potentially misreading, so don't store
             {   // A misread of 3 buttons as more will show up as 4 or more here.  Thus, reading 3 buttons can only happen if it's not a misread.
                 KeysPressed = (Buffer ^ KeysDown) & Buffer;
                 KeysDown = Buffer;

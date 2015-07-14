@@ -281,13 +281,60 @@ namespace Reflow_Oven_Controller
         public static void Main()
         {
             OvenController Controller = new OvenController();
-            Controller.Init();
 
-
-            while (true)
+            try
             {
-                Controller.Scan();
-                Thread.Sleep(30);
+                Controller.Init();
+                while (true)
+                {
+                    Controller.Scan();
+                    Thread.Sleep(30);
+                }
+            }
+            catch(Exception ex)
+            {
+
+                // Any hardware that *can* be controlled should be defaulted to failsafe configuration
+                try
+                {
+                    _Element1.PowerLevel = 0;
+                    _Element2.PowerLevel = 0;
+                }
+                catch
+                {
+                    // Swallow error and keep going
+                }
+
+                try
+                {
+                    Keypad.Buzzer.Stop();
+                }
+                catch
+                {
+                    // Swallow error and keep going
+                }
+
+                try
+                {
+                    _PortExpander.GPIOA.SetBits(0x80);
+                    _OvenFanPWM.DutyCycle = 1.0f;
+                }
+                catch
+                {
+                    // Swallow error and keep going
+                }
+
+                // If we're running on USB power, alert the debugger to the error, or just give up at this point if no _VUSB object
+                if (_VUSB == null || _VUSB.Read())
+                    throw;
+
+                if (Keypad != null)
+                    Keypad.StartTune();
+
+                while (true)
+                {
+                    Thread.Sleep(1000);
+                }
             }
         }
 
