@@ -36,7 +36,7 @@ namespace Reflow_Oven_Controller
         public static TemperatureSensor Sensor2 { get; private set; }
         public static CPUMonitor CPULoad { get; private set; }
         public static Lcd LCD { get; private set; }
-        public static ProfileController Profile { get; set; }
+        public static ProfileController ProfileController { get; set; }
         public static MCP23017 PortExpander { get; private set; }
         public static DeltaPID Element1PID;
         public static DeltaPID Element2PID;
@@ -49,11 +49,11 @@ namespace Reflow_Oven_Controller
         private static Lcd _LCD;
         private static ZeroCrossingSSR _Element1;
         private static ZeroCrossingSSR _Element2;
-        private static ProfileController _Profile;
         private static PWM _OvenFanPWM;
         private static UserInterface _Interface;
         private static OutputPort _ScanLED;
         private static MCP23017 _PortExpander;
+        private static InputPort _VUSB;
 
         //Web GUI stuff here
         private static WebServer WebServer;
@@ -166,7 +166,7 @@ namespace Reflow_Oven_Controller
 
 
             // TODO Process Control
-            Element1PID.Setpoint = TemperatureSetpoint - 2; // Run the resistive element at a lower setpoint due to thermal inertia
+            Element1PID.Setpoint = TemperatureSetpoint - 3; // Run the resistive element at a lower setpoint due to thermal inertia
             Element2PID.Setpoint = TemperatureSetpoint;
 
             if (ElementsEnabled)
@@ -188,21 +188,24 @@ namespace Reflow_Oven_Controller
 
         public void Init()
         {
+            _VUSB = new InputPort((Cpu.Pin)0x09, false, Port.ResistorMode.PullDown);
+
             // Initialize I/O drivers and ports
             _Keypad = new OvenKeypad(Pins.GPIO_PIN_D8, Pins.GPIO_PIN_D1, Pins.GPIO_PIN_D2, Pins.GPIO_PIN_D3,
                                      Pins.GPIO_PIN_D4, Pins.GPIO_PIN_D0, Pins.GPIO_PIN_D6,
                                      Pins.GPIO_PIN_D7, PWMChannels.PWM_PIN_D9);
 
-            _Sensor1 = new TemperatureSensor(Pins.GPIO_PIN_A0);
-            _Sensor2 = new TemperatureSensor(Pins.GPIO_PIN_A1);
-
-            _Profile = new ProfileController();
 
             Keypad = _Keypad;
             Sensor1 = _Sensor1;
             Sensor2 = _Sensor2;
-            Profile = _Profile;
-            
+
+            _Sensor1 = new TemperatureSensor(Pins.GPIO_PIN_A0);
+            _Sensor2 = new TemperatureSensor(Pins.GPIO_PIN_A1);
+
+            ProfileController = new ProfileController();
+
+
             _PortExpander = new MCP23017();
             _PortExpander.GPIOA.EnablePullups(0x7F);
             _PortExpander.GPIOA.SetOutputs(0x80);
