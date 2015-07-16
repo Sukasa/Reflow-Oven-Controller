@@ -27,7 +27,7 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
 
         public Lcd(Cpu.Pin ChipSelectPin, Cpu.Pin DataCommandPin, Cpu.PWMChannel BacklightPin)
         {
-            _Device = SPIBus.Instance().CreateBusDevice(Pins.GPIO_NONE, false, 10000);
+            _Device = SPIBus.Instance().CreateBusDevice(Pins.GPIO_NONE, false, 10600);
 
             _ChipSelect = new OutputPort(ChipSelectPin, true);
             _DataCommand = new OutputPort(DataCommandPin, true);
