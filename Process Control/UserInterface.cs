@@ -1,9 +1,6 @@
-using System;
-
 using Microsoft.SPOT.Net.NetworkInformation;
-using Microsoft.SPOT;
-using System.Net;
 using Reflow_Oven_Controller.Hardware_Drivers;
+using System;
 
 namespace Reflow_Oven_Controller.Process_Control
 {
@@ -313,6 +310,9 @@ namespace Reflow_Oven_Controller.Process_Control
 
             LCD.LoadImage("BakeScreen");
             CurrentScreen = Screens.Bake;
+
+            LCD.DrawBrush = LCD.CreateBrush(255, 255, 255);
+            LCD.DrawText(14, 24, 310, OvenController.ProfileController.LoadedProfile, 2);
             
             OvenController.ProfileController.DrawProfile();
         }
@@ -400,7 +400,6 @@ namespace Reflow_Oven_Controller.Process_Control
         }
 
         #endregion
-
 
         private void DrawBoxes(int MenuChoice)
         {
