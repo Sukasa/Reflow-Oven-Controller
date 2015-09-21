@@ -13,6 +13,8 @@ namespace Reflow_Oven_Controller
 {
     public class OvenController
     {
+        public const float MaxBayTemperature = 50f;
+
         // Basic overview data
         public static float OvenTemperature { get; private set; }
         public static float BayTemperature { get; private set; }
@@ -65,18 +67,6 @@ namespace Reflow_Oven_Controller
             FreeMem = Debug.GC(false);
             _ScanLED.Write(!_ScanLED.Read());
             DoorAjar = (((int)_PortExpander.GPIOA & 0x01) == 0x01);
-
-
-            // Control oven fan power based on speed requested
-            if (OvenFanSpeed >= 0.01f)
-            {
-                _PortExpander.GPIOA.SetBits(0x80);
-            }
-            else
-            {
-                _PortExpander.GPIOA.ClearBits(0x80);
-            }
-            _OvenFanPWM.DutyCycle = OvenFanSpeed;
 
 
             // Read thermocouple sensors
@@ -137,6 +127,7 @@ namespace Reflow_Oven_Controller
                     break;
                 default:
                     // Fail hard - no working temperature sensors
+                    // TODO Fail hard
                     break;
             }
 
@@ -157,15 +148,35 @@ namespace Reflow_Oven_Controller
                     break;
                 default:
                     // Fail hard - no working temperature sensors
+                    // TODO Fail hard
                     break;
             }
-
-            // TODO Local user interface
             _Keypad.Scan();
             _Interface.Tick();
 
+            // If the electronics bay overheats, perform emergency shutdown of oven
+            if (BayTemperature > MaxBayTemperature)
+            {
+                if (ProfileController.CurrentState != Process_Control.ProfileController.ProcessState.Aborted)
+                {
+                    ProfileController.Abort("Aborted - System overheat");
+                }
+                Keypad.LEDControl = OvenKeypad.LEDState.FastFlash;
+                OvenFanSpeed = 1.0f;
+                ElementsEnabled = false;
+            }
 
-            // TODO Process Control
+            // Control oven fan power based on speed requested
+            if (OvenFanSpeed >= 0.01f)
+            {
+                _PortExpander.GPIOA.SetBits(0x80);
+            }
+            else
+            {
+                _PortExpander.GPIOA.ClearBits(0x80);
+            }
+            _OvenFanPWM.DutyCycle = OvenFanSpeed;
+
             Element1PID.Setpoint = TemperatureSetpoint - 3; // Run the resistive element at a lower setpoint due to thermal inertia
             Element2PID.Setpoint = TemperatureSetpoint;
 
@@ -188,6 +199,7 @@ namespace Reflow_Oven_Controller
 
         public void Init()
         {
+            // Initialize the VUSB detection pin (determines if USB is connected or not) - somewhat of a 'hidden' pin, hence the 0x09
             _VUSB = new InputPort((Cpu.Pin)0x09, false, Port.ResistorMode.PullDown);
 
             // Initialize I/O drivers and ports
@@ -195,16 +207,14 @@ namespace Reflow_Oven_Controller
                                      Pins.GPIO_PIN_D4, Pins.GPIO_PIN_D0, Pins.GPIO_PIN_D6,
                                      Pins.GPIO_PIN_D7, PWMChannels.PWM_PIN_D9);
 
+            _Sensor1 = new TemperatureSensor(Pins.GPIO_PIN_A0);
+            _Sensor2 = new TemperatureSensor(Pins.GPIO_PIN_A1);
 
             Keypad = _Keypad;
             Sensor1 = _Sensor1;
             Sensor2 = _Sensor2;
 
-            _Sensor1 = new TemperatureSensor(Pins.GPIO_PIN_A0);
-            _Sensor2 = new TemperatureSensor(Pins.GPIO_PIN_A1);
-
             ProfileController = new ProfileController();
-
 
             _PortExpander = new MCP23017();
             _PortExpander.GPIOA.EnablePullups(0x7F);
@@ -294,7 +304,7 @@ namespace Reflow_Oven_Controller
                     Thread.Sleep(30);
                 }
             }
-            catch(Exception ex)
+            catch
             {
 
                 // Any hardware that *can* be controlled should be defaulted to failsafe configuration
