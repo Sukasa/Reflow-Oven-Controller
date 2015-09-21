@@ -28,6 +28,8 @@ namespace Reflow_Oven_Controller.Process_Control
         private ProfileDatapoint[] _Datapoints;
         private int _CurrentDatapoint;
 
+        public string LoadedProfile { get; private set; }
+
         private ProfileDatapoint CurrentDatapoint
         {
             get
@@ -124,6 +126,8 @@ namespace Reflow_Oven_Controller.Process_Control
 
         public void LoadProfile(string ProfileName)
         {
+            LoadedProfile = ProfileName;
+
             byte[] Buffer = new byte[512];
 
             using (FileStream Stream = new FileStream("\\SD\\Oven\\Profiles\\" + ProfileName, FileMode.Open))
@@ -169,7 +173,40 @@ namespace Reflow_Oven_Controller.Process_Control
 
         public void ParseProfile(string Filename)
         {
+            ProfileDatapoint[] Points;
+            int NumDatapoints;
 
+            using (FileStream FS = File.OpenRead(Filename))
+            {
+                using (TextReader TR = new StreamReader(FS))
+                {
+                    string Count = TR.ReadLine();
+                    NumDatapoints = int.Parse(Count);
+                    Points = new ProfileDatapoint[NumDatapoints];
+                    for (int i = 0; i < NumDatapoints; i++)
+                    {
+                        string[] Data = TR.ReadLine().Split(',');
+                        Points[i] = new ProfileDatapoint(int.Parse(Data[0]), (float)double.Parse(Data[1]), (ProfileDatapoint.DatapointFlags)int.Parse(Data[2]));
+                    }
+                }
+            }
+
+            File.Delete(Filename);
+
+            Filename = "\\SD\\Oven\\Profiles\\" + Path.GetFileNameWithoutExtension(Filename);
+
+            if (File.Exists(Filename))
+                File.Delete(Filename);
+
+            using (FileStream FS = File.OpenWrite(Filename))
+            {
+                byte[] Buffer = new byte[NumDatapoints * ProfileDatapoint.Stride];
+                for (int i = 0; i < NumDatapoints; i++)
+                {
+                    Points[i].ToBytes(Buffer, i * ProfileDatapoint.Stride);
+                }
+                FS.Write(Buffer, 0, Buffer.Length);
+            }
         }
 
         public string Status()
