@@ -15,8 +15,6 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
         protected OutputPort _DataCommand;
         protected PWM _Backlight;
         protected byte[] _FontData;
-        protected bool ShiftCheckDone;
-        protected bool DataShifted;
 
         public int DrawBrush { get; set; }
         public int Fillbrush { get; set; }
@@ -33,16 +31,13 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
             _DataCommand = new OutputPort(DataCommandPin, true);
             _Backlight = new PWM(BacklightPin, 2000, 1.0f, false);
 
-            _Buffer = new byte[36500];
+            _Buffer = new byte[32768];
 
             _FontData = new byte[1536];
             using (FileStream FS = System.IO.File.OpenRead("\\SD\\Oven\\FontBase.bin"))
             {
                 FS.Read(_FontData, 0, _FontData.Length);
             }
-
-            ShiftCheckDone = false;
-            DataShifted = false;
         }
 
         public float BacklightIntensity
@@ -62,43 +57,53 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
             LoadImage(ImageFilename, 0, 0, 320, 240);
         }
 
-        public void LoadImage(string ImageFilename, int X, int Y, int Width, int Height)
+        public void LoadImage(string ImageFilename, int X, int Y, int Width, int Height, bool SkipWrite = false)
         {
             SPIBus Bus = SPIBus.Instance();
             Bus.SelectDevice(_Device);
 
             SetWindow(X, Y, Width, Height);
 
-            uint FreeMem = Microsoft.SPOT.Debug.GC(false);
+            if (SkipWrite && (Width * Height * 3) > 32768) // If we are skipping the writes and can't fit everything into the buffer...
+                return;
 
             ThreadPriority Prior = Thread.CurrentThread.Priority;
             Thread.CurrentThread.Priority = ThreadPriority.AboveNormal;
 
-            WriteCommand(WriteMem); // 2C == Memory Write
-            _ChipSelect.Write(true);
+            if (!SkipWrite)
+            {
+                WriteCommand(WriteMem); // 2C == Memory Write
+                _ChipSelect.Write(true);
+
+                _DataCommand.Write(true); // Sending data and not command
+                _ChipSelect.Write(true);
+            }
 
             int Offset = 0;
             int Read = 0;
-
-            _DataCommand.Write(true); // Sending data and not command
-            _ChipSelect.Write(true);
 
             using (FileStream FS = System.IO.File.OpenRead("\\SD\\Oven\\Images\\" + ImageFilename))
             {
                 while ((Read = FS.Read(_Buffer, 0, _Buffer.Length)) > 0)
                 {
-                    _ChipSelect.Write(false);
-                    Bus.Write(_Buffer, 0, Read);
+                    if (!SkipWrite)
+                    {
+                        _ChipSelect.Write(false);
+                        Bus.Write(_Buffer, 0, Read);
+                        _ChipSelect.Write(true);
+                    }
+
                     Offset += Read;
-                    _ChipSelect.Write(true);
                 }
             }
 
-            _ChipSelect.Write(true);
+            if (!SkipWrite)
+            {
+                _ChipSelect.Write(true);
 
-            WriteCommand(NoOp); // NOP, Ends write
-            _ChipSelect.Write(true);
-
+                WriteCommand(NoOp); // NOP, Ends write
+                _ChipSelect.Write(true);
+            }
             Thread.CurrentThread.Priority = Prior;
         }
 
@@ -325,52 +330,8 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
             // Now read data out from VRAM
             SPIBus Bus = SPIBus.Instance();
 
-
-            // This block of code is designed to work around a hardware issue, in case a proper solution cannot be found
-            // The basis of the problem is that the thermocouple boards cause phantom clock pulses when reading from the LCD.  I don't know why, they just do.
-            // The workaround is to check for evidence of this corruption and then correct.
-
-            if (DataShifted)
-            {
-                Bus.ReadWrite(_Buffer, _Buffer, 0, Bytes + 1, Offset, Bytes + 1, 0);
-                for (int Ptr = 0; Ptr < _Buffer.Length - 1; Ptr++)
-                {
-                    _Buffer[Ptr] = (byte)((_Buffer[Ptr] << 7) | (_Buffer[Ptr + 1] >> 1));
-                }
-            }
-            else
-            {
-                Bus.Write(_Buffer, 0, 1);
-                Bus.ReadWrite(_Buffer, _Buffer, 0, Bytes, Offset, Bytes, 0);
-
-                if (!ShiftCheckDone)
-                {
-                    DataShifted = false;
-                    int Ptr;
-                    for (Ptr = 1; Ptr < 192; Ptr++)
-                    {
-                        if ((_Buffer[Ptr] & 0x03) != 0x00)
-                        {
-                            DataShifted = true;
-                            break;
-                        }
-                    }
-                    ShiftCheckDone = true;
-
-                    if (DataShifted)
-                    {
-                        // End data transfer
-                        WriteCommand(00);
-                        _ChipSelect.Write(true);
-
-                        // Now redo the xfer so we can shift properly
-                        Read(Bytes, Offset);
-                        return;
-                    }
-
-                }
-
-            }
+            Bus.Write(_Buffer, 0, 1);
+            Bus.ReadWrite(_Buffer, _Buffer, 0, Bytes, Offset, Bytes, 0);
 
             // End data transfer
             WriteCommand(00);
@@ -382,6 +343,7 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
 
             OvenController.PortExpander.GPIOA.SetOutputs(0x02);
 
+            // Reset the LCD controller
             OvenController.PortExpander.GPIOA.SetBits(0x02);
             Thread.Sleep(5);
             OvenController.PortExpander.GPIOA.ClearBits(0x02);
@@ -402,7 +364,21 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
 
         public void SetPixel(int X, int Y, ushort Color)
         {
-            // TODO
+            //Select device
+            SPIBus Bus = SPIBus.Instance();
+            Bus.SelectDevice(_Device);
+
+            // Set window to single pixel + load buffer
+            SetWindow(X, Y, 1, 1);
+            SetBufferPixel(0, 0, Color);
+
+            // Write pixel data
+            WriteCommand(WriteMem);
+            _ChipSelect.Write(true);
+            WriteData(3, 0);
+            WriteCommand(NoOp);
+            _ChipSelect.Write(true);
+
         }
 
         private void LoadExecuteInitSequence()
@@ -438,36 +414,46 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
                     {
                         WriteData(1, Ptr);
                     }
-                    //WriteData(DataLen, Ptr);
-                    //Ptr += DataLen;
                 }
 
             }
 
         }
 
-        public void DrawText(int X, int Y, int MaxWidth, string Text, int SizeMultiplier)
+        public int MeasureTextWidth(string Text, int SizeMultiplier)
+        {
+            int Width = 0;
+            for (int i = 0; i < Text.Length; i++)
+            {
+                char Character = Text[i];
+                Width += _FontData[(Character << 1)] * SizeMultiplier;
+                Width++;
+            }
+            return --Width;
+        }
+
+        public void DrawText(int X, int Y, int MaxWidth, string Text, int SizeMultiplier, int OffsetX = 0, int OffsetY = 0, bool SkipRead = false, bool SkipWrite = false)
         {
             SizeMultiplier = Math.Min(SizeMultiplier, 4);
             if (SizeMultiplier < 0)
                 return;
 
-            int Height = 11 * SizeMultiplier;
-
             MaxWidth = Math.Min(MaxWidth, 320 - X);
+            int Height = 11 * SizeMultiplier + OffsetY;
             int BufferSize = MaxWidth * Height * 3;
 
-            SetWindow(X, Y, MaxWidth, Height);
-
             // Read in window
-            Read(BufferSize, 0);
-
-            X = 0;
-
-            foreach (char Character in Text)
+            if (!SkipRead)
             {
-                int CharacterWidth = _FontData[(Character << 1)];
+                SetWindow(X, Y, MaxWidth, Height);
+                Read(BufferSize, 0);
+            }
+            X = OffsetX;
 
+            for (int i = 0; i < Text.Length; i++)
+            {
+                char Character = Text[i];
+                int CharacterWidth = _FontData[(Character << 1)];
                 if (X + CharacterWidth > MaxWidth)
                     break;
 
@@ -476,7 +462,7 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
 
                 for (; CharacterWidth > 0; --CharacterWidth)
                 {
-                    for (Y = 0; Y < Height; Y += SizeMultiplier)
+                    for (Y = OffsetY; Y < Height; Y += SizeMultiplier)
                     {
                         // Draw pixel of character to scale
                         if ((_FontData[DataOffset] & (1 << Bits)) != 0)
@@ -495,12 +481,18 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
                 X++;
             }
 
-            // Write out Data
-            WriteCommand(WriteMem);
-            _ChipSelect.Write(true);
-            WriteData(BufferSize, 0);
-            WriteCommand(NoOp);
-            _ChipSelect.Write(true);
+            if (!SkipWrite)
+            {
+                // SetWindow() again in case we never read.
+                SetWindow(X, Y, MaxWidth, Height);
+
+                // Write out data
+                WriteCommand(WriteMem);
+                _ChipSelect.Write(true);
+                WriteData(BufferSize, 0);
+                WriteCommand(NoOp);
+                _ChipSelect.Write(true);
+            }
         }
     }
 }
