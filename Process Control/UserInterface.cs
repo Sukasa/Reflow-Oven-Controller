@@ -46,11 +46,7 @@ namespace Reflow_Oven_Controller.Process_Control
                 case Screens.Splash:
                     if (OvenController.Keypad.IsKeyPressed(OvenKeypad.Keys.Any))
                     {
-                        if (CurrentScreen == Screens.Splash)
-                        {
-                            LoadMainMenu();
-                            CurrentScreen = Screens.Home;
-                        }
+                        LoadMainMenu();
                     }
                     break;
                 case Screens.Settings:
@@ -64,6 +60,9 @@ namespace Reflow_Oven_Controller.Process_Control
                     break;
                 case Screens.Profiles:
                     ProfileScreenTick();
+                    break;
+                case Screens.Bake:
+                    TickBakeScreen();
                     break;
             }
 
@@ -178,17 +177,19 @@ namespace Reflow_Oven_Controller.Process_Control
         {
             LCD.LoadImage("IPAddress");
             CurrentScreen = Screens.SettingsIp;
-
+            int CenteredX = 0;
             foreach (NetworkInterface Interface in NetworkInterface.GetAllNetworkInterfaces())
             {
                 if (Interface.GatewayAddress != "0.0.0.0")
                 {
-                    LCD.DrawText(65, 106, 220, Interface.IPAddress, 4);
+                    CenteredX = (320 - LCD.MeasureTextWidth(Interface.IPAddress, 4)) / 2;
+                    LCD.DrawText(CenteredX, 106, 320 - CenteredX, Interface.IPAddress, 4);
                     return;
                 }
             }
 
-            LCD.DrawText(65, 106, 220, "Not Available", 4);
+            CenteredX = (320 - LCD.MeasureTextWidth("Not Available", 4)) / 2;
+            LCD.DrawText(CenteredX, 106, 320 - CenteredX, "Not Available", 4);
         }
 
         private void IPAddressTick()
@@ -287,20 +288,116 @@ namespace Reflow_Oven_Controller.Process_Control
             else if (Keypad.IsKeyPressed(OvenKeypad.Keys.Start))
             {
                 // Select current preset for bake
-                OvenController.ProfileController.LoadProfile("");
-                // LoadBakeScreen();
+                OvenController.ProfileController.LoadProfile(OvenController.ProfileController.Profiles[ProfileSelection]);
+                LoadBakeScreen();
             }
         }
 
         private int PresetToSlot(int Preset)
         {
-            int T = (int)(System.Math.Log((double)Preset) / System.Math.Log(2.0));
-            return T;
+            return (int)(System.Math.Log((double)Preset) / System.Math.Log(2.0));
         }
 
         #endregion
 
         #region Bake Screen
+
+        public TimeSpan LastTime;
+        public int LastTemperature;
+        public int LastTemperatureSP;
+        public string LastStatus;
+
+        public void LoadBakeScreen()
+        {
+            LastTime = OvenController.ProfileController.ElapsedTime;
+
+            LCD.LoadImage("BakeScreen");
+            CurrentScreen = Screens.Bake;
+            
+            OvenController.ProfileController.DrawProfile();
+        }
+
+        public void TickBakeScreen()
+        {
+            bool TimeTemperatureChanged = false;
+
+            TimeSpan Time = OvenController.ProfileController.ElapsedTime;
+
+            string Status = OvenController.ProfileController.Status();
+            int Temperature = (int)OvenController.OvenTemperature;
+            int TemperatureSP = (int)OvenController.TemperatureSetpoint;
+
+            if (Time.Seconds != LastTime.Seconds || Temperature != LastTemperature || TemperatureSP != LastTemperatureSP)
+                TimeTemperatureChanged = true;
+            bool StatusChanged = Status != LastStatus;
+
+            LastStatus = Status;
+            LastTemperature = Temperature;
+            LastTemperatureSP = TemperatureSP;
+            LastTime = Time;
+
+            if (TimeTemperatureChanged)
+            {
+                // Clear panel
+                LCD.LoadImage("BakeScreenClear", 10, 165, 300, 30, true);
+
+                // Draw Time
+                LCD.DrawText(0, 0, 300, Time.Minutes.ToString("D2") + ":" + Time.Seconds.ToString("D2"), 2, 10, 4, true, true);
+
+                // Draw Temperatures
+                string TemperatureText = (Temperature.ToString() + "/" + TemperatureSP.ToString() + "°C");
+                int Width = LCD.MeasureTextWidth(TemperatureText, 2);
+                LCD.DrawText(290 - Width, 0, 300, TemperatureText, 2, 10, 4, true, true);
+
+                // Write buffer
+                LCD.WriteData(27000, 0);
+            }
+            
+            if (StatusChanged)
+            {
+                // Clear panel
+                LCD.LoadImage("BakeScreenClear", 10, 200, 300, 30, true);
+
+                // Draw status
+                LCD.DrawText(0, 0, 280, Status, 2, 10, 4, true, true);
+
+                // Write buffer
+                LCD.WriteData(27000, 0);
+            }
+            // Handle stop/start
+
+            switch (OvenController.ProfileController.CurrentState)
+            {
+                case ProfileController.ProcessState.Running:
+                    if (Keypad.IsKeyPressed(OvenKeypad.Keys.Stop))
+                    {
+                        OvenController.ProfileController.Abort("Cancelled");
+                    }
+                    break;
+                case ProfileController.ProcessState.Aborted:
+                    if (Keypad.IsKeyPressed(OvenKeypad.Keys.Stop))
+                    {
+                        LoadProfileScreen();
+                    }
+                    break;
+                case ProfileController.ProcessState.Finished:
+                    if (Keypad.IsKeyPressed(OvenKeypad.Keys.Stop))
+                    {
+                        LoadProfileScreen();
+                    }
+                    break;
+                case ProfileController.ProcessState.NotStarted:
+                    if (Keypad.IsKeyPressed(OvenKeypad.Keys.Stop))
+                    {
+                        LoadProfileScreen();
+                    }
+                    if (Keypad.IsKeyPressed(OvenKeypad.Keys.Start))
+                    {
+                        OvenController.ProfileController.Start();
+                    }
+                    break;
+            }
+        }
 
         #endregion
 
