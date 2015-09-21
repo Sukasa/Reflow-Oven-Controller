@@ -22,14 +22,23 @@ namespace Reflow_Oven_Controller.Process_Control
         private DateTime _StartTime;
         private string[] _ProfilePresets;
         private string[] _Profiles;
+        private string AbortReason;
 
         // Currently-running profile
         private ProfileDatapoint[] _Datapoints;
         private int _CurrentDatapoint;
 
+        private ProfileDatapoint CurrentDatapoint
+        {
+            get
+            {
+                return _Datapoints[_CurrentDatapoint];
+            }
+        }
+
         public enum ProcessState
         {
-            Stopped,
+            NotStarted,
             Running,
             Aborted,
             Finished
@@ -46,7 +55,20 @@ namespace Reflow_Oven_Controller.Process_Control
 
         public ProfileController()
         {
-            CurrentState = ProcessState.Stopped;
+            CurrentState = ProcessState.NotStarted;
+
+
+
+            // Scan for new profiles that need to be parsed from text into binary data
+            _Profiles = Directory.GetFiles(@"SD\Oven\NewProfiles");
+
+            foreach (string Filename in _Profiles)
+            {
+                // Open each file and convert it
+                ParseProfile(Filename);
+            }
+
+
 
             _Profiles = Directory.GetFiles(@"SD\Oven\Profiles");
 
@@ -74,8 +96,6 @@ namespace Reflow_Oven_Controller.Process_Control
                 _ProfilePresets = new string[] { "", "", "", "", "", "" };
             }
 
-
-            // Scan for new profiles that need to be parsed from text into binary data
 
         }
 
@@ -120,11 +140,13 @@ namespace Reflow_Oven_Controller.Process_Control
             }
         }
 
-        public void Abort()
+        public void Abort(string Reason = "Aborted")
         {
             CurrentState = ProcessState.Aborted;
             OvenController.ElementsEnabled = false;
             OvenController.Keypad.LEDControl = OvenKeypad.LEDState.Off;
+            OvenController.Keypad.Beep(OvenKeypad.BeepLength.Long);
+            AbortReason = Reason;
         }
 
         public bool Start()
@@ -145,9 +167,41 @@ namespace Reflow_Oven_Controller.Process_Control
             return true;
         }
 
-        public void ParseProfile(string ProfileData, string OutputFilename)
+        public void ParseProfile(string Filename)
         {
 
+        }
+
+        public string Status()
+        {
+            switch (CurrentState)
+            {
+                case ProcessState.Aborted:
+                    return AbortReason;
+                case ProcessState.Finished:
+                    return "Complete";
+                case ProcessState.NotStarted:
+                    return "Press Start";
+                case ProcessState.Running:
+                    if ((CurrentDatapoint.Flags & ProfileDatapoint.DatapointFlags.WaitForTemperature) != 0)
+                    {
+                        return "Preheat";
+                    }
+                    else if ((CurrentDatapoint.Flags & ProfileDatapoint.DatapointFlags.InsertItemNotification) != 0)
+                    {
+                        return "Insert board now";
+                    }
+                    else if ((CurrentDatapoint.Flags & ProfileDatapoint.DatapointFlags.NoAbortDoorOpen) != 0 && OvenController.DoorAjar)
+                    {
+                        return "Close door to continue";
+                    }
+                    else if ((CurrentDatapoint.Flags & ProfileDatapoint.DatapointFlags.Cooling) != 0 && OvenController.DoorAjar)
+                    {
+                        return "Cooling board";
+                    }
+                    return "Baking";
+            }
+            return "Error";
         }
 
         public void Tick()
@@ -212,10 +266,17 @@ namespace Reflow_Oven_Controller.Process_Control
                     }
                 }
 
-                // Wait for door to be closed
-                if (OvenController.DoorAjar && ((Datapoint.Flags & ProfileDatapoint.DatapointFlags.NoAbortDoorOpen) == ProfileDatapoint.DatapointFlags.NoAbortDoorOpen))
+                // Wait for door to be closed (or fault if we opened the door unexpectedly)
+                if (OvenController.DoorAjar)
                 {
-                    ElapsedTime = Datapoint.TimeOffset;
+                    if ((Datapoint.Flags & ProfileDatapoint.DatapointFlags.NoAbortDoorOpen) == ProfileDatapoint.DatapointFlags.NoAbortDoorOpen)
+                    {
+                        ElapsedTime = Datapoint.TimeOffset;
+                    }
+                    else
+                    {
+                        Abort("Aborted - Door opened");
+                    }
                 }
             }
 
@@ -237,7 +298,7 @@ namespace Reflow_Oven_Controller.Process_Control
 
                 // 300 is inner width of window
                 // 20 is X position of first pixel column within window
-                // Replace both of these stand-in numbers with proper values/constants later
+                // TODO Replace both of these stand-in numbers with proper values/constants later
                 int XStart = ((int)((double)Datapoint.TimeOffset.Ticks / TotalTime.Ticks) * 300) + 20;
                 int XEnd = ((int)((double)NextDatapoint.TimeOffset.Ticks / TotalTime.Ticks) * 300) + 20;
 
