@@ -1,4 +1,5 @@
 ﻿using Microsoft.SPOT;
+using System.IO;
 using Microsoft.SPOT.Hardware;
 using Microsoft.SPOT.Net.NetworkInformation;
 using Reflow_Oven_Controller.Hardware_Drivers;
@@ -24,13 +25,11 @@ namespace Reflow_Oven_Controller
         public static float OvenFanSpeed { get; set; }
         public static float LcdOnBrightness { get; set; }
         public static float LcdDimBrightness { get; set; }
-
         public static uint FreeMem { get; private set; }
-
         public static bool ElementsEnabled { get; set; }
         public static bool DoorAjar { get; private set; }
-
         public static FaultCodes Faults { get; set; }
+        public static bool LastDoorState;
 
         // Detailed sensor/interface access
         public static OvenKeypad Keypad { get; private set; }
@@ -42,7 +41,6 @@ namespace Reflow_Oven_Controller
         public static MCP23017 PortExpander { get; private set; }
         public static DeltaPID Element1PID;
         public static DeltaPID Element2PID;
-        public static bool LastDoorState;
 
         // Internal stuff
         private static TemperatureSensor _Sensor1;
@@ -64,10 +62,12 @@ namespace Reflow_Oven_Controller
 
         public void Scan()
         {
+            // Update free-memory numbers and flip the scan LED status
             FreeMem = Debug.GC(false);
             _ScanLED.Write(!_ScanLED.Read());
-            DoorAjar = (((int)_PortExpander.GPIOA & 0x01) == 0x01);
 
+            // Read door sensor
+            DoorAjar = (((int)_PortExpander.GPIOA & 0x01) == 0x01);
 
             // Read thermocouple sensors
             _Sensor1.Read();
@@ -151,8 +151,10 @@ namespace Reflow_Oven_Controller
                     // TODO Fail hard
                     break;
             }
+
             _Keypad.Scan();
             _Interface.Tick();
+            ProfileController.Tick();
 
             // If the electronics bay overheats, perform emergency shutdown of oven
             if (BayTemperature > MaxBayTemperature)
@@ -177,7 +179,7 @@ namespace Reflow_Oven_Controller
             }
             _OvenFanPWM.DutyCycle = OvenFanSpeed;
 
-            Element1PID.Setpoint = TemperatureSetpoint - 3; // Run the resistive element at a lower setpoint due to thermal inertia
+            Element1PID.Setpoint = TemperatureSetpoint;
             Element2PID.Setpoint = TemperatureSetpoint;
 
             if (ElementsEnabled)
@@ -238,26 +240,26 @@ namespace Reflow_Oven_Controller
             Element2PID = new DeltaPID(() => OvenTemperature);
 
             // Resistive Element (Bottom)
-            Element1PID.ProportionalBand = 15;
-            Element1PID.IntegralRate = 7;
+            Element1PID.ProportionalBand = 10;
+            Element1PID.IntegralRate = 9;
             Element1PID.IntegralResetBand = 15;
             Element1PID.TargetHz = 10;
             Element1PID.ReverseActing = true;
             Element1PID.DerivativeTime = 19f;
-            Element1PID.DerivativeGain = 6f;
-            Element1PID.DerivativeBand = 95f;
+            Element1PID.DerivativeGain = 2f;
+            Element1PID.DerivativeBand = 65f;
             Element1PID.ProportionalGain = 60f;
 
             // Quartz Element (Top)
-            Element2PID.ProportionalBand = 10;
-            Element2PID.IntegralRate = 8;
+            Element2PID.ProportionalBand = 5;
+            Element2PID.IntegralRate = 11;
             Element2PID.IntegralResetBand = 11;
             Element2PID.TargetHz = 10;
             Element2PID.ReverseActing = true;
-            Element2PID.DerivativeTime = 14f;
-            Element2PID.DerivativeGain = 6f;
-            Element2PID.DerivativeBand = 80f;
-            Element2PID.ProportionalGain = 55f;
+            Element2PID.DerivativeTime = 10f;
+            Element2PID.DerivativeGain = 3f;
+            Element2PID.DerivativeBand = 60f;
+            Element2PID.ProportionalGain = 60f;
 
             Thread.CurrentThread.Priority = ThreadPriority.AboveNormal; // Kick the main control thread to high priority, as we do all hardware I/O and "heavy lifting" on this thread
 
@@ -265,9 +267,6 @@ namespace Reflow_Oven_Controller
 
             if (InternetConnectionAvailable())
             {
-                WebServer = new WebServer();
-                WebServer.SetFileAndDirectoryService(new FileAndDirectoryService());
-                WebServer.StartServer(80);
 
                 try
                 {
@@ -278,6 +277,10 @@ namespace Reflow_Oven_Controller
                     // Do nothing if no time server available
                     Debug.Print("Unable to get NTP time");
                 }
+
+                WebServer = new WebServer();
+                WebServer.SetFileAndDirectoryService(new FileAndDirectoryService());
+                WebServer.StartServer(80);
             }
             else
             {
@@ -304,9 +307,8 @@ namespace Reflow_Oven_Controller
                     Thread.Sleep(30);
                 }
             }
-            catch
+            catch(Exception ex)
             {
-
                 // Any hardware that *can* be controlled should be defaulted to failsafe configuration
                 try
                 {
@@ -331,6 +333,23 @@ namespace Reflow_Oven_Controller
                 {
                     _PortExpander.GPIOA.SetBits(0x80);
                     _OvenFanPWM.DutyCycle = 1.0f;
+                }
+                catch
+                {
+                    // Swallow error and keep going
+                }
+
+                try
+                {
+                    using (FileStream FS = File.OpenWrite("SD\\Error.txt"))
+                    {
+                        using (TextWriter TW = new StreamWriter(FS))
+                        {
+                            TW.WriteLine(ex.Message);
+                            TW.WriteLine(ex.StackTrace);
+                            TW.Flush();
+                        }
+                    }
                 }
                 catch
                 {
