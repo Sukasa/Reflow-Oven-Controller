@@ -1,76 +1,77 @@
 <html>
-    <head>
-        <title>
-            Reflow Oven
-        </title>
-        <link rel="stylesheet" href="style.css" />
-        <script type="text/javascript" src="jquery-1.4.1.min.js"></script>
-        <script type="text/javascript" src="Default.js"></script>
+<head>
+    <title>
+        Reflow Oven
+    </title>
+    <link rel="stylesheet" href="style.css" />
+    <script type="text/javascript" src="jquery-1.4.1.min.js"></script>
+    <script type="text/javascript" src="Default.js"></script>
 
-    </head>
-    <body>
-        <div class="topbar">
-            <h1>Makerspace Nanaimo Solder Reflow Oven</h1>
+</head>
+<body>
+    <div class="topbar">
+        <h1>Makerspace Nanaimo Solder Reflow Oven</h1>
+    </div>
+    <div class="content">
+
+        <div class="statspanel">
+            <center><b>Stats</b></center>
+            <br />
+            <table>
+                <tr>
+                    <td>Temperature</td>
+                    <td id="OvenTemp">142°C</td>
+                </tr>
+                <tr>
+                    <td>Bay Temperature</td>
+                    <td id="BayTemp">39°C</td>
+                </tr>
+                <tr>
+                    <td>Element Statuses</td>
+                    <td id="ElementStatuses">100% 100%</td>
+                </tr>
+                <tr>
+                    <td>Door Ajar</td>
+                    <td id="DoorAjar">No</td>
+                </tr>
+                <tr>
+                    <td>Free Memory</td>
+                    <td id="FreeMem">29,102 B</td>
+                </tr>
+                <tr>
+                    <td>CPU Load</td>
+                    <td id="CPULoad">32%</td>
+                </tr>
+                <tr>
+                    <td>Oven Fan</td>
+                    <td id="OvenFan">75%</td>
+                </tr>
+            </table>
         </div>
-        <div class="content">
+    </div>
 
-            <div class="statspanel">
-                <center><b>Stats</b></center>
-                <br />
-                <table>
-                    <tr>
-                        <td>Temperature</td>
-                        <td id="OvenTemp">142°C</td>
-                    </tr>
-                    <tr>
-                        <td>Bay Temperature</td>
-                        <td id="BayTemp">39°C</td>
-                    </tr>
-                    <tr>
-                        <td>Element Statuses</td>
-                        <td id="ElementStatuses">100% 100%</td>
-                    </tr>
-                    <tr>
-                        <td>Door Ajar</td>
-                        <td id="DoorAjar">No</td>
-                    </tr>
-                    <tr>
-                        <td>Free Memory</td>
-                        <td id="FreeMem">29,102 B</td>
-                    </tr>
-                    <tr>
-                        <td>CPU Load</td>
-                        <td id="FreeMem">32%</td>
-                    </tr>
-                    <tr>
-                        <td>Oven Fan</td>
-                        <td id="OvenFan">75%</td>
-                    </tr>
-                </table>
-            </div>
-        </div>
+    <div class="pulldown">
+        Nothing here but us chickens!
+        <!--uC Filename:
+        <br />
+        <input id="path" type="text" />
+        <br />
+        File:
+        <br />
+        <input id="file" type="file" />
+        <br />
+        <hr />
+        <center><input id="savefile" type="submit" value="Upload" /></center>
+        <hr />
+        <center><input id="deletefile" type="submit" value="Delete File" /></center>
+        -->
+    </div>
 
-        <div class="pulldown">
-            uC Filename: 
-            <br />
-            <input id="path" type="text" />
-            <br />
-            File:
-            <br />
-            <input id="file" type="file" />
-            <br />
-            <hr />
-            <center><input id="savefile" type="submit" value="Upload" /></center>
-            <hr />
-            <center><input id="deletefile" type="submit" value="Delete File" /></center>
-            
-        </div>
+    <script type="text/javascript">
+        $(document).ready(function () {
+            init();
+        });
+    </script>
 
-        <script type="text/javascript">
-            $(document).ready(function () {
-                init();
-            });
-        </script>
-
-    </body>
+</body>
 </html>
