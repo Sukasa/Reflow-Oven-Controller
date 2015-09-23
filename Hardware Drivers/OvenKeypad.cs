@@ -13,6 +13,8 @@ namespace Reflow_Oven_Controller
         private Thread _LEDThread;
         private DateTime _BeepTime;
 
+
+        // Error tune, played when the microcontroller hits an exception
         private bool _PlayingTune;
         private int _TunePtr;
         private double[] Frequencies = { 329.63, 349.23, 369.99, 392.00,
@@ -53,7 +55,7 @@ namespace Reflow_Oven_Controller
 
             // FastFlast and SlowFlash are millisecond timings
             FastFlash = 120,
-            SlowFlash = 450
+            SlowFlash = 550
         }
 
         public Keys KeysDown { get; set; }
@@ -203,7 +205,7 @@ namespace Reflow_Oven_Controller
 
             for (int Row = 0; Row < 4; Row++)
                 if (_Rows[Row].Active)   // This if statement works around a firmware design choice to THROW AN EXCEPTION if you try to set active to the value
-                    _Rows[Row].Active = false; // it already is.  What kind of design choice is that?!
+                    _Rows[Row].Active = false; // it already is.  What kind of design choice is that?! (I also submitted a fix for an upcoming version of .NETMF)
 
             _Columns[0] = new InputPort(ColumnPin1, false, Port.ResistorMode.PullDown);
             _Columns[1] = new InputPort(ColumnPin2, false, Port.ResistorMode.PullDown);
@@ -233,6 +235,7 @@ namespace Reflow_Oven_Controller
                     if (_Columns[Column].Read())
                     {
                         Buffer |= (Keys)Flag;
+                        NumKeys++;
                     }
                     Flag <<= 1;
                 }
