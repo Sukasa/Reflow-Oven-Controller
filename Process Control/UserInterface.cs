@@ -31,9 +31,9 @@ namespace Reflow_Oven_Controller.Process_Control
                 OvenController.Keypad.Beep(0);
             }
 
-
-            OvenController.LCD.BacklightIntensity = (OvenController.TotalSeconds(DateTime.Now - OvenController.Keypad.LastBeepTime) > 20) ? OvenController.LcdDimBrightness : OvenController.LcdOnBrightness;
-
+            OvenController.LCD.BacklightIntensity = OvenController.ProfileController.CurrentState != ProfileController.ProcessState.Running &&
+                                                    (OvenController.TotalSeconds(DateTime.Now - OvenController.Keypad.LastBeepTime) > 20) ?
+                                                        OvenController.LcdDimBrightness : OvenController.LcdOnBrightness;
 
             switch (CurrentScreen)
             {
@@ -64,7 +64,7 @@ namespace Reflow_Oven_Controller.Process_Control
             }
 
 
-            if (OvenController.TotalSeconds(DateTime.Now - OvenController.Keypad.LastBeepTime) > 60 && (CurrentScreen == Screens.Home || CurrentScreen == Screens.SettingsAbout))
+            if (OvenController.TotalSeconds(DateTime.Now - OvenController.Keypad.LastBeepTime) > 60 && (CurrentScreen == Screens.Home || CurrentScreen == Screens.Settings || CurrentScreen == Screens.SettingsAbout))
             {
                 OvenController.LCD.LoadImage("Splash");
                 CurrentScreen = Screens.Splash;
@@ -215,6 +215,7 @@ namespace Reflow_Oven_Controller.Process_Control
         public void RedrawProfileScreen()
         {
             LCD.LoadImage("Presets");
+            LCD.DrawBrush = LCD.CreateBrush(0, 0, 0);
 
             // Draw entry 1
             LCD.DrawText(12, 31, 200, OvenController.ProfileController.Profiles[ProfileScroll], 3);
@@ -312,23 +313,19 @@ namespace Reflow_Oven_Controller.Process_Control
             CurrentScreen = Screens.Bake;
 
             LCD.DrawBrush = LCD.CreateBrush(255, 255, 255);
-            LCD.DrawText(14, 24, 310, OvenController.ProfileController.LoadedProfile, 2);
+            LCD.DrawText(14, 29, 310, OvenController.ProfileController.LoadedProfile, 2);
             
             OvenController.ProfileController.DrawProfile();
         }
 
         public void TickBakeScreen()
         {
-            bool TimeTemperatureChanged = false;
-
             TimeSpan Time = OvenController.ProfileController.ElapsedTime;
-
             string Status = OvenController.ProfileController.Status();
             int Temperature = (int)OvenController.OvenTemperature;
-            int TemperatureSP = (int)OvenController.TemperatureSetpoint;
+            int TemperatureSP = (int)OvenController.ProfileController.TargetTemperature;
 
-            if (Time.Seconds != LastTime.Seconds || Temperature != LastTemperature || TemperatureSP != LastTemperatureSP)
-                TimeTemperatureChanged = true;
+            bool TimeTemperatureChanged = Time.Seconds != LastTime.Seconds || Temperature != LastTemperature || TemperatureSP != LastTemperatureSP;
             bool StatusChanged = Status != LastStatus;
 
             LastStatus = Status;
@@ -336,21 +333,30 @@ namespace Reflow_Oven_Controller.Process_Control
             LastTemperatureSP = TemperatureSP;
             LastTime = Time;
 
+            LCD.DrawBrush = LCD.CreateBrush(0, 0, 0);
+
             if (TimeTemperatureChanged)
             {
                 // Clear panel
                 LCD.LoadImage("BakeScreenClear", 10, 165, 300, 30, true);
 
                 // Draw Time
-                LCD.DrawText(0, 0, 300, Time.Minutes.ToString("D2") + ":" + Time.Seconds.ToString("D2"), 2, 10, 4, true, true);
+                if (OvenController.ProfileController.Hours)
+                {
+                    LCD.DrawText(0, 0, 300, Time.Hours.ToString("D3") + ":" + Time.Minutes.ToString("D2") + ":" + Time.Seconds.ToString("D2"), 2, 10, 4, true, true);
+                }
+                else
+                {
+                    LCD.DrawText(0, 0, 300, Time.Minutes.ToString("D2") + ":" + Time.Seconds.ToString("D2"), 2, 10, 4, true, true);
+                }
 
                 // Draw Temperatures
                 string TemperatureText = (Temperature.ToString() + "/" + TemperatureSP.ToString() + "°C");
                 int Width = LCD.MeasureTextWidth(TemperatureText, 2);
-                LCD.DrawText(290 - Width, 0, 300, TemperatureText, 2, 10, 4, true, true);
+                LCD.DrawText(0, 0, 300, TemperatureText, 2, 290 - Width, 4, true, true);
 
                 // Write buffer
-                LCD.WriteData(27000, 0);
+                LCD.DrawBuffer(27000);
             }
             
             if (StatusChanged)
@@ -362,7 +368,7 @@ namespace Reflow_Oven_Controller.Process_Control
                 LCD.DrawText(0, 0, 280, Status, 2, 10, 4, true, true);
 
                 // Write buffer
-                LCD.WriteData(27000, 0);
+                LCD.DrawBuffer(27000);
             }
             // Handle stop/start
 
