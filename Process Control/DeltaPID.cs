@@ -115,8 +115,8 @@ namespace Reflow_Oven_Controller.Process_Control
                     Bias += I * (float)Math.Sign(Offset);
                 }
 
-                Bias = (float)Math.Min(Math.Max(Bias, 0f), 100f);
             }
+            Bias = (float)Math.Min(Math.Max(Bias, 0f), 100f);
 
             if (DerivativeGain > 0f && DerivativeTime > 0f)
             {
