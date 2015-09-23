@@ -20,8 +20,8 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
         public int Fillbrush { get; set; }
         public int WindowStride;
 
-        public const byte WriteMem = 0x2C;
-        public const byte NoOp = 0x00;
+        protected const byte WriteMem = 0x2C;
+        protected const byte NoOp = 0x00;
 
         public Lcd(Cpu.Pin ChipSelectPin, Cpu.Pin DataCommandPin, Cpu.PWMChannel BacklightPin)
         {
@@ -113,72 +113,66 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
             DrawBox(X, Y, Width, Height);
 
             // Draw infill
-            FillBox(X + 1, Y + 1, Width - 2, Height - 2);
+            FillBox(X + 3, Y + 3, Width - 6, Height - 6);
         }
 
         public void DrawBox(int X, int Y, int Width, int Height)
         {
             int BufferSize = Width * Height * 3;
 
-            SetWindow(X, Y, Width, Height);
-
-            // Read in window
-            Read(BufferSize, 0);
-
-            --Height;
-            X = 0;
-            Y = 1;
-
-            for (int Thickness = 3; Thickness > 0; --Thickness)
+            for (int i = 0; i < Math.Max(Width, Height) * 9; i+= 3)
             {
-                for (int dX = X; dX < Width; dX++)
-                {
-                    SetBufferPixel(dX, Y, DrawBrush);
-                    SetBufferPixel(dX, Height, DrawBrush);
-                }
-
-                for (int dY = Y; dY < Height; dY++)
-                {
-                    SetBufferPixel(X, dY, DrawBrush);
-                    SetBufferPixel(Width - 1, dY, DrawBrush);
-                }
-
-                --Height;
-                --Width;
-                ++X;
-                ++Y;
+                _Buffer[i] = (byte)(DrawBrush >> 16);
+                _Buffer[i + 1] = (byte)((DrawBrush >> 8) & 0xff);
+                _Buffer[i + 2] = (byte)(DrawBrush & 0xff);
             }
 
-            // Write out Data
-            WriteCommand(WriteMem);
-            _ChipSelect.Write(true);
-            WriteData(BufferSize, 0);
-            WriteCommand(NoOp);
-            _ChipSelect.Write(true);
+            
+            // Top border
+            SetWindow(X, Y, Width, 3);
+            DrawBuffer(Width * 9);
+
+            // Left border
+            SetWindow(X, Y, 3, Height);
+            DrawBuffer(Height * 9);
+            
+            // Right border
+            SetWindow(X + Width - 3, Y, 3, Height);
+            DrawBuffer(Height * 9);
+            
+            // Bottom border
+            SetWindow(X, Y + Height - 3, Width, 3);
+            DrawBuffer(Width * 9);
         }
 
         public void FillBox(int X, int Y, int Width, int Height)
         {
-            int NumColumns = (_Buffer.Length / (Height * 2));
+            int NumBytes = Width * Height * 3;
+            int UseBufferSize = Math.Min((_Buffer.Length / 3) * 3, NumBytes);
 
             SetWindow(X, Y, Width, Height);
-            int Passes = 0;
+            int Passes = (NumBytes + _Buffer.Length) / _Buffer.Length;
 
-            for (; Passes < _Buffer.Length; Passes += 2)
+            for (int i = 0; i < UseBufferSize; i += 3)
             {
-                _Buffer[Passes] = (byte)((Fillbrush & 0xff00) >> 8);
-                _Buffer[Passes + 1] = (byte)(Fillbrush & 0xff);
+                _Buffer[i] = (byte)(Fillbrush >> 16);
+                _Buffer[i + 1] = (byte)((Fillbrush >> 8) & 0xff);
+                _Buffer[i + 2] = (byte)(Fillbrush & 0xff);
             }
 
-            int PassesNeeded = (Width) / NumColumns;
-            int ColumnsLeftOver = (Width) - (PassesNeeded * NumColumns);
+            WriteCommand(WriteMem);
+            _ChipSelect.Write(true);
 
-            for (Passes = 0; Passes < PassesNeeded; Passes++)
+            while (NumBytes > 0)
             {
-                WriteData(NumColumns * Height * 2, 0);
+                int NumDrawn = Math.Min(NumBytes, UseBufferSize);
+                WriteData(NumDrawn, 0);
+                NumBytes -= NumDrawn;
             }
 
-            WriteData(ColumnsLeftOver * Height * 2, 0);
+            WriteCommand(00);
+            _ChipSelect.Write(true);
+
         }
 
         public int CreateBrush(byte Red, byte Green, byte Blue)
@@ -205,46 +199,39 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
             int DeltaX = X2 - X1;
             int DeltaY = Y2 - Y1;
             int MinY = Math.Min(Y1, Y2);
-            int BufferSize = (DeltaX + 1) * (DeltaY + 1) * 2;
+            int BufferSize = (DeltaX + 1) * (Math.Abs(DeltaY) + 1) * 3;
 
             float Error = 0.0f;
-            float DError = DeltaX != 0 ? (float)Math.Abs((float)DeltaY / (float)DeltaX) : 300;// Assume deltax != 0 (line is not vertical),
+            float DError = DeltaX != 0 ? (float)Math.Abs((float)DeltaY / (float)DeltaX) : Math.Abs(DeltaY);
 
 
-            SetWindow(X1, Math.Min(Y1, Y2), DeltaX + 1, DeltaY + 1);
+            SetWindow(X1, Math.Min(Y1, Y2), DeltaX + 1, Math.Abs(DeltaY) + 1);
 
             // Read in window
             Read(BufferSize, 0);
 
             int XEnd = Math.Max(X1, X2);
-            int Y = MinY;
+            int Y = Y1;
 
-            SetBufferPixel(0, Y - MinY, DrawBrush);
-
+            SetBufferPixel(0, Y - MinY, Brush);
 
             for (int X = Math.Min(X1, X2); X <= XEnd; X++)
             {
                 Error += DError;
-                if (Error <= 0.5)
+                if (Math.Abs(Error) <= 0.5)
                 {
-                    SetBufferPixel(X - X1, Y - MinY, DrawBrush);
+                    SetBufferPixel(X - X1, Y - MinY, Brush);
                 }
-                while ((Error > 0.5) && Y <= Y2)
+                while ((Math.Abs(Error) > 0.5))
                 {
-                    SetBufferPixel(X - X1, Y - MinY, DrawBrush);
-                    Y += Math.Sign(Y2 - Y1);
-                    Error -= 1.0f;
+                    SetBufferPixel(X - X1, Y - MinY, Brush);
+                    Y += Math.Sign(DeltaY);
+                    Error -= Math.Sign(Error);
                 }
             }
 
             // Write out Data
-            WriteCommand(WriteMem);
-            _ChipSelect.Write(true);
-            WriteData(BufferSize, 0);
-            WriteCommand(NoOp);
-            _ChipSelect.Write(true);
-
-
+            DrawBuffer(BufferSize);
         }
 
         public void SetBufferPixel(int X, int Y, int Color)
@@ -274,6 +261,15 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
             _ChipSelect.Write(true);
         }
 
+        public void DrawBuffer(int Bytes, int Offset = 0)
+        {
+            WriteCommand(WriteMem);
+            _ChipSelect.Write(true);
+            WriteData(Bytes, Offset);
+            WriteCommand(00);
+            _ChipSelect.Write(true);
+        }
+
         private void WriteCommand(byte Command)
         {
             _DataCommand.Write(false);
@@ -284,11 +280,6 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
             Bus.Write(new byte[] { Command });
         }
 
-        /// <summary>
-        ///     Write <paramref name="Bytes"/> number of bytes to the Lcd, starting at <paramref name="Offset"/> in the function buffer
-        /// </summary>
-        /// <param name="Bytes"></param>
-        /// <param name="Offset"></param>
         public void WriteData(int Bytes, int Offset = 0)
         {
             // Don't write past the end of the array
@@ -362,7 +353,7 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
 
         }
 
-        public void SetPixel(int X, int Y, ushort Color)
+        public void SetPixel(int X, int Y)
         {
             //Select device
             SPIBus Bus = SPIBus.Instance();
@@ -370,7 +361,7 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
 
             // Set window to single pixel + load buffer
             SetWindow(X, Y, 1, 1);
-            SetBufferPixel(0, 0, Color);
+            SetBufferPixel(0, 0, DrawBrush);
 
             // Write pixel data
             WriteCommand(WriteMem);
@@ -448,13 +439,13 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
                 SetWindow(X, Y, MaxWidth, Height);
                 Read(BufferSize, 0);
             }
-            X = OffsetX;
+            int DrawX = OffsetX;
 
             for (int i = 0; i < Text.Length; i++)
             {
                 char Character = Text[i];
                 int CharacterWidth = _FontData[(Character << 1)];
-                if (X + CharacterWidth > MaxWidth)
+                if (DrawX + CharacterWidth > MaxWidth)
                     break;
 
                 int DataOffset = 512 + (_FontData[(Character << 1) + 1] << 2);
@@ -462,13 +453,13 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
 
                 for (; CharacterWidth > 0; --CharacterWidth)
                 {
-                    for (Y = OffsetY; Y < Height; Y += SizeMultiplier)
+                    for (int DrawY = OffsetY; DrawY < Height; DrawY += SizeMultiplier)
                     {
                         // Draw pixel of character to scale
                         if ((_FontData[DataOffset] & (1 << Bits)) != 0)
                             for (int dX = 0; dX < SizeMultiplier; dX++)
                                 for (int dY = 0; dY < SizeMultiplier; dY++)
-                                    SetBufferPixel(X + dX, Y + dY, DrawBrush);
+                                    SetBufferPixel(DrawX + dX, DrawY + dY, DrawBrush);
 
                         if (++Bits == 8)
                         {
@@ -476,9 +467,9 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
                             ++DataOffset;
                         }
                     }
-                    X += SizeMultiplier;
+                    DrawX += SizeMultiplier;
                 }
-                X++;
+                DrawX++;
             }
 
             if (!SkipWrite)
