@@ -320,7 +320,7 @@ namespace Reflow_Oven_Controller.Process_Control
 
         public void TickBakeScreen()
         {
-            TimeSpan Time = OvenController.ProfileController.ElapsedTime;
+            TimeSpan Time = OvenController.ProfileController.TimeSinceStart;
             string Status = OvenController.ProfileController.Status();
             int Temperature = (int)OvenController.OvenTemperature;
             int TemperatureSP = (int)OvenController.ProfileController.TargetTemperature;
@@ -370,8 +370,8 @@ namespace Reflow_Oven_Controller.Process_Control
                 // Write buffer
                 LCD.DrawBuffer(27000);
             }
+            
             // Handle stop/start
-
             switch (OvenController.ProfileController.CurrentState)
             {
                 case ProfileController.ProcessState.Running:
@@ -384,12 +384,14 @@ namespace Reflow_Oven_Controller.Process_Control
                     if (Keypad.IsKeyPressed(OvenKeypad.Keys.Stop))
                     {
                         LoadProfileScreen();
+                        OvenController.ProfileController.CurrentState = ProfileController.ProcessState.NotStarted;
                     }
                     break;
                 case ProfileController.ProcessState.Finished:
                     if (Keypad.IsKeyPressed(OvenKeypad.Keys.Stop))
                     {
                         LoadProfileScreen();
+                        OvenController.ProfileController.CurrentState = ProfileController.ProcessState.NotStarted;
                     }
                     break;
                 case ProfileController.ProcessState.NotStarted:
