@@ -21,7 +21,8 @@ namespace Reflow_Oven_Controller.Process_Control
             WaitForTemperature = 4, // Pause the process timer until setpoint is reached
             Beep = 8, // Beep once when this datapoint becomes active
             InsertItemNotification = 16, // IfNoAbortDoorOpen is set, this selects between "insert item now" and "item ready" notifications
-            Cooling = 32 // Say 'Cooling' instead of 'Baking'
+            Cooling = 32, // Say 'Cooling' instead of 'Baking'
+            NextTemperature = 64 // Use the temperature setpoint from the next data point instead of this one
         }
 
         public ProfileDatapoint(TimeSpan TimePoint, float Temp)

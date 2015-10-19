@@ -18,11 +18,28 @@ namespace Reflow_Oven_Controller.Process_Control
                 _StartTime = DateTime.Now - value;
             }
         }
+
+        public TimeSpan _CachedTSS;
+
+        public TimeSpan TimeSinceStart
+        {
+            get
+            {
+                if (CurrentState == ProcessState.Running)
+                    return _CachedTSS = (DateTime.Now - _DisplayStartTime);
+                
+                if (CurrentState == ProcessState.Aborted || CurrentState == ProcessState.Finished)
+                    return _CachedTSS;
+
+                return _CachedTSS = new TimeSpan(0);
+            }
+        }
         public ProcessState CurrentState { get; set; }
         public float TargetTemperature { get; private set; }
         public bool Hours { get; private set; }
 
         private DateTime _StartTime;
+        private DateTime _DisplayStartTime;
         private string[] _ProfilePresets;
         private string[] _Profiles;
         private string AbortReason;
@@ -174,6 +191,7 @@ namespace Reflow_Oven_Controller.Process_Control
 
             // Clear to start, so initialize all necessary values
             _StartTime = DateTime.Now;
+            _DisplayStartTime = _StartTime;
             _CurrentDatapoint = 0;
             CurrentState = ProcessState.Running;
 
@@ -252,7 +270,7 @@ namespace Reflow_Oven_Controller.Process_Control
                     }
                     else if ((CurrentDatapoint.Flags & ProfileDatapoint.DatapointFlags.WaitForTemperature) != 0)
                     {
-                        return "Preheat";
+                        return "Heating";
                     }
                     else if ((CurrentDatapoint.Flags & ProfileDatapoint.DatapointFlags.Cooling) != 0)
                     {
@@ -415,7 +433,14 @@ namespace Reflow_Oven_Controller.Process_Control
             }
 
             // In order to make the rise nicer, don't lerp the temperature setpoint the PID loops run off
-            OvenController.TemperatureSetpoint = _Datapoints[_CurrentDatapoint].Temperature;
+            if ((_Datapoints[_CurrentDatapoint].Flags & ProfileDatapoint.DatapointFlags.NextTemperature) != 0)
+            {
+                OvenController.TemperatureSetpoint = _Datapoints[_CurrentDatapoint + 1].Temperature;
+            }
+            else
+            {
+                OvenController.TemperatureSetpoint = _Datapoints[_CurrentDatapoint].Temperature;
+            }
         }
 
         // Draw profile to display, assuming the base window is already drawn
