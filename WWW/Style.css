@@ -34,10 +34,10 @@ body {
 
 .statspanel {
     position: absolute;
-    left: 50px;
+    left: 40px;
     top: 30px;
 
-    width: 225px;
+    width: 325px;
     height: 340px;
     
     background-color: rgba(0,0,0,0.75);
@@ -55,6 +55,10 @@ body {
 .statspanel table td {
     padding-right: 2px;
     padding-left: 2px;
+}
+
+.statspanel table tr td:first-child {
+    width: 125px;
 }
 
 .statspanel table tr:nth-child(odd) {

@@ -3,7 +3,8 @@ function init() {
     $("#savefile").click(function (Event) { doFileUpload(); });
     $("#deletefile").click(function (Event) { deleteFile(); });
 
-    setInterval(updateStats, 2500);
+    setInterval(updateStats, 3000);
+    setTimeout(updateStats, 500);
 }
 
 var konami = [112, 114, 105, 115, 99, 105, 108, 108, 97];
@@ -26,10 +27,10 @@ function kCode(Event) {
 }
 
 function FormatNum(Number, Suffix) {
-    Number += '';
-    var x = nStr.split('.');
+    Number += "";
+    var x = Number.split('.');
     var x1 = x[0];
-    var x2 = x.length > 1 ? '.' + x[1] : '';
+    var x2 = x.length > 1 ? ('.' + x[1]) : "";
     var rgx = /(\d+)(\d{3})/;
     while (rgx.test(x1)) {
         x1 = x1.replace(rgx, '$1' + ',' + '$2');
@@ -39,17 +40,16 @@ function FormatNum(Number, Suffix) {
 
 function updateStats() {
     // Download stats from /Data
-
-    $.getJSON("Data", function (Data) {
-        $("OvenTemp").text(FormatNum(Data.OvenTemperature, " °C") + " (" + FormatNum(Data.TSense1, " °C") + ", " + FormatNum(Data.TSense2, " °C"));
-        $("BayTemp").text(FormatNum(Data.BayTemperature), " °C");
-        $("FreeMem").text(FormatNum(Data.FreeMem, " B"));
-        $("DoorAjar").text(Data.DoorAjar ? "Ajar" : "Closed");
-        $("ElementStatuses").text(FormatNum(Data.LowerPower, "%") + ", " + FormatNum(Data.UpperPower, "%"));
-        $("CPULoad").text(FormatNum(Data.Load, "%"));
-        $("OvenFan").text(FormatNum(Data.Fan2, "%"));
+    $.getJSON("/Data", null, function (Data) {
+        $("#OvenTemp").html(FormatNum(Data.OvenTemperature, " °C") + " (" + FormatNum(Data.TSense1, " °C") + ", " + FormatNum(Data.TSense2, " °C") + ")");
+        $("#BayTemp").html(FormatNum(Data.BayTemperature, " °C"));
+        $("#FreeMem").html(FormatNum(Data.FreeMem, " B"));
+        $("#DoorAjar").html(Data.DoorAjar ? "Ajar" : "Closed");
+        $("#ElementStatuses").html(FormatNum(Data.LowerPower, "%") + ", " + FormatNum(Data.UpperPower, "%"));
+        $("#CPULoad").html(FormatNum(Data.Load, "%"));
+        $("#OvenFan").html(FormatNum(Data.Fan2, "%"));
     });
-
+    
 }
 
 function deleteFile() {
