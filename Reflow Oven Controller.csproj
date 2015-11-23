@@ -77,6 +77,15 @@
     <Compile Include="Hardware Drivers\I2CBus.cs" />
     <Compile Include="Hardware Drivers\Lcd.cs" />
     <Compile Include="Hardware Drivers\MCP23017.cs" />
+    <None Include="Graphics\AboutScreen" />
+    <None Include="Graphics\BakeScreen" />
+    <None Include="Graphics\BakeScreenClear" />
+    <None Include="Graphics\FontBase.bin" />
+    <None Include="Graphics\IPAddress" />
+    <None Include="Graphics\MainMenu" />
+    <None Include="Graphics\Presets" />
+    <None Include="Graphics\Settings" />
+    <None Include="Graphics\Splash" />
     <None Include="InitData\LCDInit.bin" />
     <Compile Include="Process Control\CPUMonitor.cs" />
     <Compile Include="Process Control\DeltaPID.cs" />
@@ -94,6 +103,7 @@
     <Compile Include="Web GUI\DataController.cs" />
     <Compile Include="Web GUI\FileController.cs" />
     <Compile Include="Web GUI\WebServer.cs" />
+    <None Include="README.md" />
     <None Include="WWW\Style.css" />
     <None Include="WWW\Default.js" />
   </ItemGroup>
@@ -118,10 +128,28 @@
       <Name>Rinsen.WebServer</Name>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Profiles\" />
-  </ItemGroup>
+  <ItemGroup />
   <ItemGroup>
     <None Include="WWW\index.html" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Graphics\AboutScreen.png" />
+    <Content Include="Graphics\Background-Base-Quantized.png" />
+    <Content Include="Graphics\Background-Base.png" />
+    <Content Include="Graphics\BakeScreen.png" />
+    <Content Include="Graphics\BakeScreenClear.png" />
+    <Content Include="Graphics\FontBase.png" />
+    <Content Include="Graphics\IPAddress.png" />
+    <Content Include="Graphics\MainMenu.png" />
+    <Content Include="Graphics\MenuItem.png" />
+    <Content Include="Graphics\Mockup1.png" />
+    <Content Include="Graphics\OvenImageConverter.exe" />
+    <Content Include="Graphics\Presets.png" />
+    <Content Include="Graphics\Settings.png" />
+    <Content Include="Graphics\Splash.png" />
+    <Content Include="NewProfiles\Dry 192h.txt" />
+    <Content Include="NewProfiles\Dry 24h.txt" />
+    <Content Include="NewProfiles\Lead Reflow.txt" />
+    <Content Include="NewProfiles\Rework Prep.txt" />
   </ItemGroup>
 </Project>
