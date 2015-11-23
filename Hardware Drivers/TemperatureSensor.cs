@@ -20,7 +20,8 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
             None = 0,
             ShortCircuitHigh = 4, // These numbers match the MAX31855 datasheet
             ShortCircuitLow = 2,
-            OpenCircuit = 1
+            OpenCircuit = 1,
+            CommsFault = 8
         }
 
         public TemperatureSensor(Cpu.Pin ChipSelectPin)
@@ -63,6 +64,14 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
 
             // Temperature - 12 bits, signed, 0.0625 degree C resolution
             ColdTemp = ((short)(Working & 0xFFF0)) / 256F;
+
+            if (ColdTemp > 70)
+            {
+                IsFaulted = true;
+                ColdTemp = 0;
+                Fault |= FaultCode.CommsFault;
+            }
+
 
             return !IsFaulted;
         }
