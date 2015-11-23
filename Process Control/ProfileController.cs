@@ -18,16 +18,13 @@ namespace Reflow_Oven_Controller.Process_Control
                 _StartTime = DateTime.Now - value;
             }
         }
-
-        public TimeSpan _CachedTSS;
-
         public TimeSpan TimeSinceStart
         {
             get
             {
                 if (CurrentState == ProcessState.Running)
                     return _CachedTSS = (DateTime.Now - _DisplayStartTime);
-                
+
                 if (CurrentState == ProcessState.Aborted || CurrentState == ProcessState.Finished)
                     return _CachedTSS;
 
@@ -36,20 +33,34 @@ namespace Reflow_Oven_Controller.Process_Control
         }
         public ProcessState CurrentState { get; set; }
         public float TargetTemperature { get; private set; }
-        public bool Hours { get; private set; }
+        public bool DisplayHours { get; private set; }
+        public bool DisplayDays { get; private set; }
+        public string[] Presets
+        {
+            get
+            {
+                return _ProfilePresets;
+            }
+        }
+        public string AbortReason
+        {
+            get
+            {
+                return _AbortReason;
+            }
+        }
+        public string LoadedProfile { get; private set; }
 
         private DateTime _StartTime;
         private DateTime _DisplayStartTime;
         private string[] _ProfilePresets;
         private string[] _Profiles;
-        private string AbortReason;
+        private string _AbortReason;
         private TimeSpan _TotalTime;
-
-        // Currently-running profile
+        private TimeSpan _CachedTSS;
         private ProfileDatapoint[] _Datapoints;
         private int _CurrentDatapoint;
 
-        public string LoadedProfile { get; private set; }
 
         private ProfileDatapoint CurrentDatapoint
         {
@@ -167,7 +178,27 @@ namespace Reflow_Oven_Controller.Process_Control
                 Ptr += ProfileDatapoint.Stride;
             }
 
-            Hours = _Datapoints[_Datapoints.Length - 1].TimeOffset.Hours > 0;
+            TimeSpan Offset = _Datapoints[_Datapoints.Length - 1].TimeOffset;
+
+            DisplayHours = Offset.Hours > 1 ||
+                           (
+                               Offset.Hours > 0 &&
+                               (
+                                   Offset.Minutes > 0 ||
+                                   Offset.Seconds > 0
+                               )
+                           );
+
+
+            DisplayDays = Offset.Days > 1 ||
+                          (
+                              Offset.Days > 0 &&
+                              (
+                                  Offset.Hours > 0 ||
+                                  Offset.Minutes > 0 ||
+                                  Offset.Seconds > 0
+                              )
+                          );
         }
 
         public void Abort(string Reason = "Aborted")
@@ -176,18 +207,37 @@ namespace Reflow_Oven_Controller.Process_Control
             OvenController.ElementsEnabled = false;
             OvenController.Keypad.LEDControl = OvenKeypad.LEDState.Off;
             OvenController.Keypad.Beep(OvenKeypad.BeepLength.Long);
-            AbortReason = Reason;
+            _AbortReason = Reason;
         }
 
-        public bool Start()
+        public enum StartFailureCode
+        {
+            Success,
+            DoorAjar,
+            NoProfileLoaded,
+            NoThermocouple,
+            SPIBusFailure,
+            BayTooHot
+        }
+
+        public StartFailureCode Start()
         {
             // Verify that conditions are ready to start, that the door is closed, etc
 
             if (_Datapoints == null)
-                return false;
+                return StartFailureCode.NoProfileLoaded;
 
             if (OvenController.DoorAjar)
-                return false;
+                return StartFailureCode.DoorAjar;
+
+            if ((OvenController.Faults & (FaultCodes.Therm1Fail | FaultCodes.Therm2Fail)) == (FaultCodes.Therm1Fail | FaultCodes.Therm2Fail))
+                return StartFailureCode.NoThermocouple;
+
+            if ((OvenController.Faults & (FaultCodes.TSense1Fail | FaultCodes.TSense2Fail)) == (FaultCodes.TSense1Fail | FaultCodes.TSense2Fail))
+                return StartFailureCode.SPIBusFailure;
+
+            if (OvenController.BayTemperature > OvenController.MaxBayTemperature - 15)
+                return StartFailureCode.BayTooHot;
 
             // Clear to start, so initialize all necessary values
             _StartTime = DateTime.Now;
@@ -201,7 +251,7 @@ namespace Reflow_Oven_Controller.Process_Control
             OvenController.Element1PID.Bias = 50f;
             OvenController.Element2PID.Bias = 50f;
 
-            return true;
+            return StartFailureCode.Success;
         }
 
         public void ParseProfile(string Filename)
@@ -254,13 +304,16 @@ namespace Reflow_Oven_Controller.Process_Control
             switch (CurrentState)
             {
                 case ProcessState.Aborted:
-                    return AbortReason;
+                    return _AbortReason;
                 case ProcessState.Finished:
                     return "Complete";
                 case ProcessState.NotStarted:
                     return "Press Start";
                 case ProcessState.Running:
-                    if ((CurrentDatapoint.Flags & ProfileDatapoint.DatapointFlags.InsertItemNotification) != 0)
+                     if ((CurrentDatapoint.Flags & ProfileDatapoint.DatapointFlags.Cooling) != 0)
+                    {
+                        return "Cooling";
+                    } else if ((CurrentDatapoint.Flags & ProfileDatapoint.DatapointFlags.InsertItemNotification) != 0)
                     {
                         return "Insert item now";
                     }
@@ -271,10 +324,6 @@ namespace Reflow_Oven_Controller.Process_Control
                     else if ((CurrentDatapoint.Flags & ProfileDatapoint.DatapointFlags.WaitForTemperature) != 0)
                     {
                         return "Heating";
-                    }
-                    else if ((CurrentDatapoint.Flags & ProfileDatapoint.DatapointFlags.Cooling) != 0)
-                    {
-                        return "Cooling";
                     }
                     return "Baking";
             }
@@ -392,7 +441,7 @@ namespace Reflow_Oven_Controller.Process_Control
             }
 
             // Wait for door to be closed (or fault if we opened the door unexpectedly)
-            if (OvenController.DoorAjar)
+            if (OvenController.DoorAjar && ((Datapoint.Flags & ProfileDatapoint.DatapointFlags.Cooling) == 0))
             {
                 if ((Datapoint.Flags & ProfileDatapoint.DatapointFlags.NoAbortDoorOpen) == ProfileDatapoint.DatapointFlags.NoAbortDoorOpen)
                 {
@@ -420,7 +469,8 @@ namespace Reflow_Oven_Controller.Process_Control
                 _Datapoints[_CurrentDatapoint].Flags &= ~ProfileDatapoint.DatapointFlags.NoAbortDoorOpen;
             }
 
-            if ((Datapoint.Flags & ProfileDatapoint.DatapointFlags.NoAbortDoorOpen) == ProfileDatapoint.DatapointFlags.NoAbortDoorOpen)
+            if (((Datapoint.Flags & ProfileDatapoint.DatapointFlags.NoAbortDoorOpen) == ProfileDatapoint.DatapointFlags.NoAbortDoorOpen) &&
+                ((Datapoint.Flags & ProfileDatapoint.DatapointFlags.Cooling) == 0))
             {
                 if (_CurrentDatapoint >= 1)
                 {

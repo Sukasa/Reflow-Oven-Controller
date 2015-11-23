@@ -41,7 +41,13 @@ namespace Reflow_Oven_Controller.Process_Control
                     MainMenuTick();
                     break;
                 case Screens.Splash:
-                    if (OvenController.Keypad.IsKeyPressed(OvenKeypad.Keys.Any))
+                    if (Keypad.IsKeyPressed(OvenKeypad.Keys.Presets) &&
+                        OvenController.ProfileController.Presets[PresetToSlot((int)(Keypad.KeysPressed & OvenKeypad.Keys.Presets))] != "")
+                    {
+                        OvenController.ProfileController.LoadProfile(OvenController.ProfileController.Presets[PresetToSlot((int)(Keypad.KeysPressed & OvenKeypad.Keys.Presets))]);
+                        LoadBakeScreen();
+                    }
+                    else if (OvenController.Keypad.IsKeyPressed(OvenKeypad.Keys.Any))
                     {
                         LoadMainMenu();
                     }
@@ -63,14 +69,12 @@ namespace Reflow_Oven_Controller.Process_Control
                     break;
             }
 
-
-            if (OvenController.TotalSeconds(DateTime.Now - OvenController.Keypad.LastBeepTime) > 60 && (CurrentScreen == Screens.Home || CurrentScreen == Screens.Settings || CurrentScreen == Screens.SettingsAbout))
+            if (OvenController.TotalSeconds(DateTime.Now - OvenController.Keypad.LastBeepTime) > 60 &&
+                (CurrentScreen == Screens.Home || CurrentScreen == Screens.Settings || CurrentScreen == Screens.SettingsIp || CurrentScreen == Screens.SettingsAbout))
             {
                 OvenController.LCD.LoadImage("Splash");
                 CurrentScreen = Screens.Splash;
             }
-
-
         }
 
         #region Main Menu
@@ -94,9 +98,11 @@ namespace Reflow_Oven_Controller.Process_Control
                     LoadSettingsMenu();
                 }
             }
-            else if (Keypad.IsKeyPressed(OvenKeypad.Keys.Presets))
+            else if (Keypad.IsKeyPressed(OvenKeypad.Keys.Presets) &&
+                OvenController.ProfileController.Presets[PresetToSlot((int)(Keypad.KeysPressed & OvenKeypad.Keys.Presets))] != "")
             {
-                // TODO Start oven via preset
+                OvenController.ProfileController.LoadProfile(OvenController.ProfileController.Presets[PresetToSlot((int)(Keypad.KeysPressed & OvenKeypad.Keys.Presets))]);
+                LoadBakeScreen();
             }
         }
 
@@ -175,6 +181,12 @@ namespace Reflow_Oven_Controller.Process_Control
             LCD.LoadImage("IPAddress");
             CurrentScreen = Screens.SettingsIp;
             int CenteredX = 0;
+            if ((OvenController.Faults & FaultCodes.NoNetConnection) > 0)
+            {
+                CenteredX = (320 - LCD.MeasureTextWidth("Not Available", 4)) / 2;
+                LCD.DrawText(CenteredX, 106, 320 - CenteredX, "Not Available", 4);
+                return;
+            }
             foreach (NetworkInterface Interface in NetworkInterface.GetAllNetworkInterfaces())
             {
                 if (Interface.GatewayAddress != "0.0.0.0")
@@ -185,8 +197,6 @@ namespace Reflow_Oven_Controller.Process_Control
                 }
             }
 
-            CenteredX = (320 - LCD.MeasureTextWidth("Not Available", 4)) / 2;
-            LCD.DrawText(CenteredX, 106, 320 - CenteredX, "Not Available", 4);
         }
 
         private void IPAddressTick()
@@ -314,7 +324,7 @@ namespace Reflow_Oven_Controller.Process_Control
 
             LCD.DrawBrush = LCD.CreateBrush(255, 255, 255);
             LCD.DrawText(14, 29, 310, OvenController.ProfileController.LoadedProfile, 2);
-            
+
             OvenController.ProfileController.DrawProfile();
         }
 
@@ -341,9 +351,13 @@ namespace Reflow_Oven_Controller.Process_Control
                 LCD.LoadImage("BakeScreenClear", 10, 165, 300, 30, true);
 
                 // Draw Time
-                if (OvenController.ProfileController.Hours)
+                if (OvenController.ProfileController.DisplayDays)
                 {
-                    LCD.DrawText(0, 0, 300, Time.Hours.ToString("D3") + ":" + Time.Minutes.ToString("D2") + ":" + Time.Seconds.ToString("D2"), 2, 10, 4, true, true);
+                    LCD.DrawText(0, 0, 300, Time.Days.ToString() + ":" + Time.Hours.ToString("D2") + ":" + Time.Minutes.ToString("D2") + ":" + Time.Seconds.ToString("D2"), 2, 10, 4, true, true);
+                }
+                else if (OvenController.ProfileController.DisplayHours)
+                {
+                    LCD.DrawText(0, 0, 300, Time.Hours.ToString("D2") + ":" + Time.Minutes.ToString("D2") + ":" + Time.Seconds.ToString("D2"), 2, 10, 4, true, true);
                 }
                 else
                 {
@@ -358,19 +372,12 @@ namespace Reflow_Oven_Controller.Process_Control
                 // Write buffer
                 LCD.DrawBuffer(27000);
             }
-            
+
             if (StatusChanged)
             {
-                // Clear panel
-                LCD.LoadImage("BakeScreenClear", 10, 200, 300, 30, true);
-
-                // Draw status
-                LCD.DrawText(0, 0, 280, Status, 2, 10, 4, true, true);
-
-                // Write buffer
-                LCD.DrawBuffer(27000);
+                WriteStatusMessage(Status);
             }
-            
+
             // Handle stop/start
             switch (OvenController.ProfileController.CurrentState)
             {
@@ -399,12 +406,42 @@ namespace Reflow_Oven_Controller.Process_Control
                     {
                         LoadProfileScreen();
                     }
-                    if (Keypad.IsKeyPressed(OvenKeypad.Keys.Start))
+                    else if (Keypad.IsKeyPressed(OvenKeypad.Keys.Start))
                     {
-                        OvenController.ProfileController.Start();
+                        ProfileController.StartFailureCode Code = OvenController.ProfileController.Start();
+                        switch (Code)
+                        {
+                            case ProfileController.StartFailureCode.DoorAjar:
+                                WriteStatusMessage("Close door to start");
+                                break;
+                            case ProfileController.StartFailureCode.BayTooHot:
+                                WriteStatusMessage("Electronics too hot");
+                                break;
+                            case ProfileController.StartFailureCode.NoProfileLoaded:
+                                WriteStatusMessage("Profile not loaded");
+                                break;
+                            case ProfileController.StartFailureCode.NoThermocouple:
+                                WriteStatusMessage("Thermocouple failure");
+                                break;
+                            case ProfileController.StartFailureCode.SPIBusFailure:
+                                WriteStatusMessage("SPI Bus failure");
+                                break;
+                        }
                     }
                     break;
             }
+        }
+
+        private void WriteStatusMessage(string Message)
+        {
+            // Clear panel
+            LCD.LoadImage("BakeScreenClear", 10, 200, 300, 30, true);
+
+            // Draw status
+            LCD.DrawText(0, 0, 280, Message, 2, 10, 4, true, true);
+
+            // Write buffer
+            LCD.DrawBuffer(27000);
         }
 
         #endregion
