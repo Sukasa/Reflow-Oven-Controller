@@ -1,5 +1,4 @@
 ﻿using Microsoft.SPOT;
-using System.IO;
 using Microsoft.SPOT.Hardware;
 using Microsoft.SPOT.Net.NetworkInformation;
 using Reflow_Oven_Controller.Hardware_Drivers;
@@ -8,6 +7,7 @@ using Rinsen.WebServer;
 using Rinsen.WebServer.FileAndDirectoryServer;
 using SecretLabs.NETMF.Hardware.Netduino;
 using System;
+using System.IO;
 using System.Threading;
 
 namespace Reflow_Oven_Controller
@@ -127,7 +127,10 @@ namespace Reflow_Oven_Controller
                     break;
                 default:
                     // Fail hard - no working temperature sensors
-                    // TODO Fail hard
+                    if (ProfileController.CurrentState == Process_Control.ProfileController.ProcessState.Running)
+                    {
+                        ProfileController.Abort("Dual Thermocouple Failure");
+                    }
                     break;
             }
 
@@ -148,7 +151,10 @@ namespace Reflow_Oven_Controller
                     break;
                 default:
                     // Fail hard - no working temperature sensors
-                    // TODO Fail hard
+                    if (ProfileController.CurrentState == Process_Control.ProfileController.ProcessState.Running)
+                    {
+                        ProfileController.Abort("SPI Bus Failure");
+                    }
                     break;
             }
 
@@ -163,6 +169,7 @@ namespace Reflow_Oven_Controller
                 {
                     ProfileController.Abort("Aborted - System overheat");
                 }
+                ProfileController.CurrentState = Process_Control.ProfileController.ProcessState.Aborted;
                 Keypad.LEDControl = OvenKeypad.LEDState.FastFlash;
                 OvenFanSpeed = 1.0f;
                 ElementsEnabled = false;
