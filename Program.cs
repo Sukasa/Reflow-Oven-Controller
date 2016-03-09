@@ -5,6 +5,7 @@ using Reflow_Oven_Controller.Hardware_Drivers;
 using Reflow_Oven_Controller.Process_Control;
 using Rinsen.WebServer;
 using Rinsen.WebServer.FileAndDirectoryServer;
+using SDBrowser;
 using SecretLabs.NETMF.Hardware.Netduino;
 using System;
 using System.IO;
@@ -58,7 +59,8 @@ namespace Reflow_Oven_Controller
         //Web GUI stuff here
         private static WebServer WebServer;
 
-        
+        // Debugging / File Management
+        internal static EmbeddedFileHost BrowserHost;
 
         public void Scan()
         {
@@ -274,7 +276,6 @@ namespace Reflow_Oven_Controller
 
             if (InternetConnectionAvailable())
             {
-
                 try
                 {
                     Ntp.UpdateTimeFromNtpServer("pool.ntp.org", -8);
@@ -288,6 +289,12 @@ namespace Reflow_Oven_Controller
                 WebServer = new WebServer();
                 WebServer.SetFileAndDirectoryService(new FileAndDirectoryService());
                 WebServer.StartServer(80);
+
+                BrowserHost = new EmbeddedFileHost();
+                BrowserHost.Status = "Normal";
+                BrowserHost.FriendlyName = "Reflow Oven";
+                BrowserHost.RootDir = @"\SD\";
+                BrowserHost.Init();
             }
             else
             {
@@ -340,6 +347,25 @@ namespace Reflow_Oven_Controller
                 {
                     _PortExpander.GPIOA.SetBits(0x80);
                     _OvenFanPWM.DutyCycle = 1.0f;
+                }
+                catch
+                {
+                    // Swallow error and keep going
+                }
+
+                try
+                {
+                    if (BrowserHost != null)
+                        BrowserHost.Status = ex.Message + "\r\n" + ex.StackTrace;
+                }
+                catch
+                {
+                    // Swallow error and keep going
+                }
+
+                try
+                {
+                    BrowserHost.Status = "System crash";
                 }
                 catch
                 {

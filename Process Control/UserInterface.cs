@@ -26,12 +26,7 @@ namespace Reflow_Oven_Controller.Process_Control
 
         public void Tick()
         {
-            if (OvenController.DoorAjar)
-            {
-                OvenController.Keypad.Beep(0);
-            }
-
-            OvenController.LCD.BacklightIntensity = OvenController.ProfileController.CurrentState != ProfileController.ProcessState.Running &&
+            OvenController.LCD.BacklightIntensity = !OvenController.DoorAjar && OvenController.ProfileController.CurrentState != ProfileController.ProcessState.Running &&
                                                     (OvenController.TotalSeconds(DateTime.Now - OvenController.Keypad.LastBeepTime) > 20) ?
                                                         OvenController.LcdDimBrightness : OvenController.LcdOnBrightness;
 
@@ -70,7 +65,7 @@ namespace Reflow_Oven_Controller.Process_Control
             }
 
             if (OvenController.TotalSeconds(DateTime.Now - OvenController.Keypad.LastBeepTime) > 60 &&
-                (CurrentScreen == Screens.Home || CurrentScreen == Screens.Settings || CurrentScreen == Screens.SettingsIp || CurrentScreen == Screens.SettingsAbout))
+                (CurrentScreen == Screens.Home || CurrentScreen == Screens.Profiles || CurrentScreen == Screens.Settings || CurrentScreen == Screens.SettingsIp || CurrentScreen == Screens.SettingsAbout))
             {
                 OvenController.LCD.LoadImage("Splash");
                 CurrentScreen = Screens.Splash;
@@ -185,15 +180,18 @@ namespace Reflow_Oven_Controller.Process_Control
             {
                 CenteredX = (320 - LCD.MeasureTextWidth("Not Available", 4)) / 2;
                 LCD.DrawText(CenteredX, 106, 320 - CenteredX, "Not Available", 4);
-                return;
             }
-            foreach (NetworkInterface Interface in NetworkInterface.GetAllNetworkInterfaces())
+            else
             {
-                if (Interface.GatewayAddress != "0.0.0.0")
+                // Find a functional network interface and display its IP
+                foreach (NetworkInterface Interface in NetworkInterface.GetAllNetworkInterfaces())
                 {
-                    CenteredX = (320 - LCD.MeasureTextWidth(Interface.IPAddress, 4)) / 2;
-                    LCD.DrawText(CenteredX, 106, 320 - CenteredX, Interface.IPAddress, 4);
-                    return;
+                    if (Interface.GatewayAddress != "0.0.0.0")
+                    {
+                        CenteredX = (320 - LCD.MeasureTextWidth(Interface.IPAddress, 4)) / 2;
+                        LCD.DrawText(CenteredX, 106, 320 - CenteredX, Interface.IPAddress, 4);
+                        break;
+                    }
                 }
             }
 
@@ -376,6 +374,7 @@ namespace Reflow_Oven_Controller.Process_Control
             if (StatusChanged)
             {
                 WriteStatusMessage(Status);
+                OvenController.BrowserHost.Status = Status;
             }
 
             // Handle stop/start
@@ -392,6 +391,7 @@ namespace Reflow_Oven_Controller.Process_Control
                     {
                         LoadProfileScreen();
                         OvenController.ProfileController.CurrentState = ProfileController.ProcessState.NotStarted;
+                        OvenController.BrowserHost.Status = "Normal";
                     }
                     break;
                 case ProfileController.ProcessState.Finished:

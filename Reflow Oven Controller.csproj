@@ -77,6 +77,7 @@
     <Compile Include="Hardware Drivers\I2CBus.cs" />
     <Compile Include="Hardware Drivers\Lcd.cs" />
     <Compile Include="Hardware Drivers\MCP23017.cs" />
+    <Content Include="WWW\Default.min.js" />
     <None Include="Graphics\AboutScreen" />
     <None Include="Graphics\BakeScreen" />
     <None Include="Graphics\BakeScreenClear" />
@@ -126,6 +127,10 @@
     <ProjectReference Include="..\Rinsen.Webserver\Rinsen.WebServer\Rinsen.WebServer.csproj">
       <Project>{6BFC7545-24EF-4C5B-9EDE-3EC99CDB86E4}</Project>
       <Name>Rinsen.WebServer</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\SDBrowser\EmbededFileHost.csproj">
+      <Project>{2B574113-6137-4C18-A5FD-A14B8B4BD565}</Project>
+      <Name>EmbededFileHost</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup />
