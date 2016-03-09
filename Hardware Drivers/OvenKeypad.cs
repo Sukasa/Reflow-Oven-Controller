@@ -118,9 +118,6 @@ namespace Reflow_Oven_Controller
 
             while (true)
             {
-
-
-
                 if (_BeepTimeLeft <= 0)
                 {
                     SleepTime = _LEDTimeLeft;

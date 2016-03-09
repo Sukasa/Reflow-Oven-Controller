@@ -20,8 +20,12 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
         public int Fillbrush { get; set; }
         public int WindowStride;
 
+        protected const byte ColumnSelect = 0x2A;
+        protected const byte RowSelect = 0x2B;
         protected const byte WriteMem = 0x2C;
+        protected const byte ReadMem = 0x2E;
         protected const byte NoOp = 0x00;
+        
 
         public Lcd(Cpu.Pin ChipSelectPin, Cpu.Pin DataCommandPin, Cpu.PWMChannel BacklightPin)
         {
@@ -68,7 +72,7 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
                 return;
 
             ThreadPriority Prior = Thread.CurrentThread.Priority;
-            Thread.CurrentThread.Priority = ThreadPriority.AboveNormal;
+            Thread.CurrentThread.Priority = ThreadPriority.Highest;
 
             if (!SkipWrite)
             {
@@ -170,7 +174,7 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
                 NumBytes -= NumDrawn;
             }
 
-            WriteCommand(00);
+            WriteCommand(NoOp);
             _ChipSelect.Write(true);
 
         }
@@ -248,16 +252,16 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
             WindowStride = Height;
             byte[] Data = new byte[] { (byte)(Y >> 8), (byte)(Y & 0xff), (byte)((Y + Height - 1) >> 8), (byte)((Y + Height - 1) & 0xff) };
 
-            WriteCommand(0x2A); // Column addr set
+            WriteCommand(ColumnSelect); // Column addr set
             _ChipSelect.Write(true);
             WriteData(Data);
 
             Data = new byte[] { (byte)(X >> 8), (byte)(X & 0xff), (byte)((X + Width - 1) >> 8), (byte)((X + Width - 1) & 0xff) };
 
-            WriteCommand(0x2B); // Row addr set
+            WriteCommand(RowSelect); // Row addr set
             _ChipSelect.Write(true);
             WriteData(Data);
-            WriteCommand(00);
+            WriteCommand(NoOp);
             _ChipSelect.Write(true);
         }
 
@@ -266,7 +270,7 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
             WriteCommand(WriteMem);
             _ChipSelect.Write(true);
             WriteData(Bytes, Offset);
-            WriteCommand(00);
+            WriteCommand(NoOp);
             _ChipSelect.Write(true);
         }
 
@@ -314,7 +318,7 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
             if (Bytes + Offset > _Buffer.Length - 1)
                 return;
 
-            WriteCommand(0x2E); // 0x2E == Read Memory
+            WriteCommand(ReadMem); // 0x2E == Read Memory
 
             _DataCommand.Write(true); // RX'ing data and not command
 
@@ -325,7 +329,7 @@ namespace Reflow_Oven_Controller.Hardware_Drivers
             Bus.ReadWrite(_Buffer, _Buffer, 0, Bytes, Offset, Bytes, 0);
 
             // End data transfer
-            WriteCommand(00);
+            WriteCommand(NoOp);
             _ChipSelect.Write(true);
         }
 
