@@ -8,6 +8,7 @@ namespace Reflow_Oven_Controller.Process_Control
 
     public class DeltaPID
     {
+        private Thread _PIDThread;
 
         public float Setpoint { get; set; }
         public GetCurrent GetCurrentValue;
@@ -26,6 +27,7 @@ namespace Reflow_Oven_Controller.Process_Control
         private int _DerivativePtr;
         public float DerivativeGain { get; set; }
         public float DerivativeBand { get; set; }
+
         public float DerivativeTime
         {
             get
@@ -62,8 +64,7 @@ namespace Reflow_Oven_Controller.Process_Control
                 _DerivativeTime = DerivativeTime; // Trigger the side effect of resizing the derivative values array
             }
         }
-
-        private Thread PIDThread;
+ 
         private void Tick()
         {
             if (GetCurrentValue == null)
@@ -165,14 +166,14 @@ namespace Reflow_Oven_Controller.Process_Control
             TargetHz = 20;
             ProportionalGain = 50f;
 
-            PIDThread = new Thread(Run);
-            PIDThread.Start();
+            _PIDThread = new Thread(Run);
+            _PIDThread.Start();
         }
 
         ~DeltaPID()
         {
             GetCurrentValue = null;
-            PIDThread.Abort();
+            _PIDThread.Abort();
         }
     }
 }
