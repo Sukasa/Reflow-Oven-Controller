@@ -355,16 +355,6 @@ namespace Reflow_Oven_Controller
 
                 try
                 {
-                    if (BrowserHost != null)
-                        BrowserHost.Status = ex.Message + "\r\n" + ex.StackTrace;
-                }
-                catch
-                {
-                    // Swallow error and keep going
-                }
-
-                try
-                {
                     BrowserHost.Status = "System crash";
                 }
                 catch

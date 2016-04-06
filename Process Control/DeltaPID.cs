@@ -61,7 +61,7 @@ namespace Reflow_Oven_Controller.Process_Control
             set
             {
                 _TargetHz = value;
-                _DerivativeTime = DerivativeTime; // Trigger the side effect of resizing the derivative values array
+                DerivativeTime = _DerivativeTime; // Trigger the side effect of resizing the derivative values array
             }
         }
  
