@@ -293,7 +293,7 @@ namespace Reflow_Oven_Controller
                 BrowserHost = new EmbeddedFileHost();
                 BrowserHost.Status = "Normal";
                 BrowserHost.FriendlyName = "Reflow Oven";
-                BrowserHost.RootDir = @"\SD\";
+                BrowserHost.RootDir = "\\SD\\";
                 BrowserHost.Init();
             }
             else
