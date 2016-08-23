@@ -478,8 +478,9 @@ namespace ReflowOvenController.HardwareDrivers
 
             if (!SkipWrite)
             {
-                // SetWindow() again in case we never read.
-                SetWindow(X, Y, MaxWidth, Height);
+                // SetWindow() if we never read.
+                if (SkipRead)
+                    SetWindow(X, Y, MaxWidth, Height);
 
                 // Write out data
                 WriteCommand(WriteMem);
