@@ -55,6 +55,8 @@ namespace ReflowOvenController
         private static OutputPort _ScanLED;
         private static MCP23017 _PortExpander;
         private static InputPort _VUSB;
+        private static int _ThermoFailCounter;
+        private static int _BayTempFailCounter;
 
         //Web GUI stuff here
         private static WebServer WebServer;
@@ -112,6 +114,9 @@ namespace ReflowOvenController
                 Faults &= ~FaultCodes.TSense2Fail;
             }
 
+            if ((Faults & (FaultCodes.Therm1Fail | FaultCodes.Therm2Fail | FaultCodes.TSense1Fail | FaultCodes.TSense2Fail)) == 0)
+                _ThermoFailCounter = 0;
+
             // Based on fault codes, read oven temperature
             switch (Faults & (FaultCodes.Therm1Fail | FaultCodes.Therm2Fail))
             {
@@ -129,7 +134,8 @@ namespace ReflowOvenController
                     break;
                 default:
                     // Fail hard - no working temperature sensors
-                    if (ProfileController.CurrentState == Process_Control.ProfileController.ProcessState.Running)
+                    _ThermoFailCounter = _ThermoFailCounter + 1;
+                    if (_ThermoFailCounter > 5 && ProfileController.CurrentState == ProcessControl.ProfileController.ProcessState.Running)
                     {
                         ProfileController.Abort("Dual Thermocouple Failure");
                     }
@@ -153,13 +159,15 @@ namespace ReflowOvenController
                     break;
                 default:
                     // Fail hard - no working temperature sensors
-                    if (ProfileController.CurrentState == Process_Control.ProfileController.ProcessState.Running)
+                    _ThermoFailCounter = _ThermoFailCounter + 1;
+                    if (_ThermoFailCounter > 5 && ProfileController.CurrentState == ProcessControl.ProfileController.ProcessState.Running)
                     {
                         ProfileController.Abort("SPI Bus Failure");
                     }
                     break;
             }
 
+            _ThermoFailCounter = System.Math.Min(_ThermoFailCounter, 10);
             _Keypad.Scan();
             _Interface.Tick();
             ProfileController.Tick();
@@ -167,14 +175,22 @@ namespace ReflowOvenController
             // If the electronics bay overheats, perform emergency shutdown of oven
             if (BayTemperature > MaxBayTemperature)
             {
-                if (ProfileController.CurrentState != Process_Control.ProfileController.ProcessState.Aborted)
+                _BayTempFailCounter = System.Math.Min(_BayTempFailCounter + 1, 10);
+                if (_BayTempFailCounter > 3)
                 {
-                    ProfileController.Abort("Aborted - System overheat");
+                    if (ProfileController.CurrentState != ProcessControl.ProfileController.ProcessState.Aborted)
+                    {
+                        ProfileController.Abort("Aborted - System overheat");
+                        ProfileController.CurrentState = ProcessControl.ProfileController.ProcessState.Aborted;
+                        Keypad.LEDControl = OvenKeypad.LEDState.FastFlash;
+                    }
+                    OvenFanSpeed = 1.0f;
+                    ElementsEnabled = false;
                 }
-                ProfileController.CurrentState = Process_Control.ProfileController.ProcessState.Aborted;
-                Keypad.LEDControl = OvenKeypad.LEDState.FastFlash;
-                OvenFanSpeed = 1.0f;
-                ElementsEnabled = false;
+            }
+            else
+            {
+                _BayTempFailCounter = 0;
             }
 
             // Control oven fan power based on speed requested
