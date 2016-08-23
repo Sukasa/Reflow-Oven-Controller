@@ -39,8 +39,8 @@ namespace ReflowOvenController.ProcessControl
                     if (Keypad.IsKeyPressed(OvenKeypad.Keys.Presets) &&
                         OvenController.ProfileController.Presets[PresetToSlot((int)(Keypad.KeysPressed & OvenKeypad.Keys.Presets))] != "")
                     {
-                        OvenController.ProfileController.LoadProfile(OvenController.ProfileController.Presets[PresetToSlot((int)(Keypad.KeysPressed & OvenKeypad.Keys.Presets))]);
-                        LoadBakeScreen();
+                        if(OvenController.ProfileController.LoadProfile(OvenController.ProfileController.Presets[PresetToSlot((int)(Keypad.KeysPressed & OvenKeypad.Keys.Presets))]))
+                            LoadBakeScreen();
                     }
                     else if (OvenController.Keypad.IsKeyPressed(OvenKeypad.Keys.Any))
                     {
@@ -96,8 +96,8 @@ namespace ReflowOvenController.ProcessControl
             else if (Keypad.IsKeyPressed(OvenKeypad.Keys.Presets) &&
                 OvenController.ProfileController.Presets[PresetToSlot((int)(Keypad.KeysPressed & OvenKeypad.Keys.Presets))] != "")
             {
-                OvenController.ProfileController.LoadProfile(OvenController.ProfileController.Presets[PresetToSlot((int)(Keypad.KeysPressed & OvenKeypad.Keys.Presets))]);
-                LoadBakeScreen();
+                if(OvenController.ProfileController.LoadProfile(OvenController.ProfileController.Presets[PresetToSlot((int)(Keypad.KeysPressed & OvenKeypad.Keys.Presets))]))
+                    LoadBakeScreen();
             }
         }
 
