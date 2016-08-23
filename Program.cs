@@ -328,7 +328,7 @@ namespace ReflowOvenController
             _ScanLED = new OutputPort(Pins.ONBOARD_LED, false);
 
             LcdOnBrightness = 1.0f;
-            LcdDimBrightness = 0.06f;
+            LcdDimBrightness = 0.05f;
         }
 
         public static void Main()
