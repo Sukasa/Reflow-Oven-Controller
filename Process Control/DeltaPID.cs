@@ -8,7 +8,8 @@ namespace ReflowOvenController.ProcessControl
 
     public class DeltaPID
     {
-        private Thread _PIDThread;
+        private static Thread _PIDsThread;
+        private static DeltaPID[] _AllPIDs;
 
         public float Setpoint { get; set; }
         public GetCurrent GetCurrentValue;
@@ -51,8 +52,8 @@ namespace ReflowOvenController.ProcessControl
         public float Value { get; set; }
         public bool ReverseActing { get; set; }
 
-        private int _TargetHz;
-        public int TargetHz
+        private static int _TargetHz;
+        public static int TargetHz
         {
             get
             {
@@ -61,7 +62,8 @@ namespace ReflowOvenController.ProcessControl
             set
             {
                 _TargetHz = value;
-                DerivativeTime = _DerivativeTime; // Trigger the side effect of resizing the derivative values array
+                for (int i = 0; i < _AllPIDs.Length; i++ )
+                    _AllPIDs[i].DerivativeTime = _AllPIDs[i]._DerivativeTime; // Trigger the side effect of resizing the derivative values array
             }
         }
  
@@ -150,30 +152,47 @@ namespace ReflowOvenController.ProcessControl
             Value = (float)Math.Max(Math.Min(Proportional + Bias + Derivative, 100f), 0f);
         }
 
-        private void Run()
+        private static void Run()
         {
             while (true)
             {
-                Tick();
+                for(int i = 0; i < _AllPIDs.Length; i++)
+                    _AllPIDs[i].Tick();
                 Thread.Sleep((int)(1000 / TargetHz));
             }
         }
 
-        public DeltaPID(GetCurrent ValueGetter)
+        public static void StartAll()
+        {
+            _PIDsThread = new Thread(Run);
+            _PIDsThread.Start();
+        }
+
+        public static void AllocatePIDs(int NumPIDs)
+        {
+            _AllPIDs = new DeltaPID[NumPIDs];
+            for (int i = 0; i < NumPIDs; i++)
+                _AllPIDs[i] = new DeltaPID();
+        }
+
+        public static DeltaPID GetPID(int Index) {
+            return _AllPIDs[Index];
+        }
+
+        public void SetGetter(GetCurrent ValueGetter)
         {
             GetCurrentValue = ValueGetter;
-            Bias = 50f;
-            TargetHz = 20;
-            ProportionalGain = 50f;
+        }
 
-            _PIDThread = new Thread(Run);
-            _PIDThread.Start();
+        public DeltaPID()
+        {
+            Bias = 50f;
+            ProportionalGain = 50f;
         }
 
         ~DeltaPID()
         {
             GetCurrentValue = null;
-            _PIDThread.Abort();
         }
     }
 }
