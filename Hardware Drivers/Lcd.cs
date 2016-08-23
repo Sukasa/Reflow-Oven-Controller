@@ -4,7 +4,7 @@ using System;
 using System.IO;
 using System.Threading;
 
-namespace Reflow_Oven_Controller.Hardware_Drivers
+namespace ReflowOvenController.HardwareDrivers
 {
     public class Lcd
     {

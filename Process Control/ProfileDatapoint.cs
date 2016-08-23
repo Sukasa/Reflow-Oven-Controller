@@ -1,7 +1,7 @@
 using System;
 using Microsoft.SPOT;
 
-namespace Reflow_Oven_Controller.Process_Control
+namespace ReflowOvenController.ProcessControl
 {
     struct ProfileDatapoint
     {

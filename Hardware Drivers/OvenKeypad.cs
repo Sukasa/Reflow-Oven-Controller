@@ -2,7 +2,7 @@ using Microsoft.SPOT.Hardware;
 using System;
 using System.Threading;
 
-namespace Reflow_Oven_Controller
+namespace ReflowOvenController
 {
     public class OvenKeypad
     {

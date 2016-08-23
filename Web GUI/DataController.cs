@@ -3,7 +3,7 @@ using System.Text;
 using Microsoft.SPOT;
 using Rinsen.WebServer;
 
-namespace Reflow_Oven_Controller.Web_GUI
+namespace ReflowOvenController.WebGUI
 {
     class DataController : Controller
     {

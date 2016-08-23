@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 
-namespace Reflow_Oven_Controller.Process_Control
+namespace ReflowOvenController.ProcessControl
 {
     public class ProfileController
     {

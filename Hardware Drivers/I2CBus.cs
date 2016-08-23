@@ -2,7 +2,7 @@ using System;
 using Microsoft.SPOT;
 using Microsoft.SPOT.Hardware;
 
-namespace Reflow_Oven_Controller.Hardware_Drivers
+namespace ReflowOvenController.HardwareDrivers
 {
     public class I2CBus : IDisposable
     {

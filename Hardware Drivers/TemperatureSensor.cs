@@ -1,7 +1,7 @@
 using System;
 using Microsoft.SPOT.Hardware;
 
-namespace Reflow_Oven_Controller.Hardware_Drivers
+namespace ReflowOvenController.HardwareDrivers
 {
     /// <summary>
     ///     MAX31855 Thermocouple IC driver

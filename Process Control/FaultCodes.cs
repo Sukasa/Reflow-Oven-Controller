@@ -1,6 +1,6 @@
 using System;
 
-namespace Reflow_Oven_Controller.Process_Control
+namespace ReflowOvenController.ProcessControl
 {
     [Flags()] public enum FaultCodes : uint
     {

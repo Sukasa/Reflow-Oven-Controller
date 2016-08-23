@@ -1,8 +1,8 @@
 ﻿using Microsoft.SPOT;
 using Microsoft.SPOT.Hardware;
 using Microsoft.SPOT.Net.NetworkInformation;
-using Reflow_Oven_Controller.Hardware_Drivers;
-using Reflow_Oven_Controller.Process_Control;
+using ReflowOvenController.HardwareDrivers;
+using ReflowOvenController.ProcessControl;
 using Rinsen.WebServer;
 using Rinsen.WebServer.FileAndDirectoryServer;
 using SDBrowser;
@@ -11,7 +11,7 @@ using System;
 using System.IO;
 using System.Threading;
 
-namespace Reflow_Oven_Controller
+namespace ReflowOvenController
 {
     public class OvenController
     {

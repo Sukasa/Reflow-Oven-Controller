@@ -3,7 +3,7 @@ using Rinsen.WebServer.Collections;
 using System;
 using System.IO;
 
-namespace Reflow_Oven_Controller.Web_GUI
+namespace ReflowOvenController.WebGUI
 {
     class FileController : Controller
     {

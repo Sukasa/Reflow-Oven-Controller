@@ -7,7 +7,7 @@ using Microsoft.SPOT.Hardware;
 using SecretLabs.NETMF.Hardware;
 using SecretLabs.NETMF.Hardware.Netduino;
 
-namespace Reflow_Oven_Controller.Hardware_Drivers
+namespace ReflowOvenController.HardwareDrivers
 {
     class SPIBus
     {

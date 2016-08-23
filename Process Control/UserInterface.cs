@@ -1,8 +1,8 @@
 using Microsoft.SPOT.Net.NetworkInformation;
-using Reflow_Oven_Controller.Hardware_Drivers;
+using ReflowOvenController.HardwareDrivers;
 using System;
 
-namespace Reflow_Oven_Controller.Process_Control
+namespace ReflowOvenController.ProcessControl
 {
     class UserInterface
     {

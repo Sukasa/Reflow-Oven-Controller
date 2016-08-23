@@ -3,7 +3,7 @@ using System.Threading;
 using Microsoft.SPOT;
 using Microsoft.SPOT.Hardware;
 
-namespace Reflow_Oven_Controller.Process_Control
+namespace ReflowOvenController.ProcessControl
 {
     public class CPUMonitor
     {

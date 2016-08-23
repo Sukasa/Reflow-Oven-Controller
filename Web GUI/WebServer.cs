@@ -1,6 +1,6 @@
 using Rinsen.WebServer;
 
-namespace Reflow_Oven_Controller
+namespace ReflowOvenController
 {
     class WebServer : ServerBase
     {

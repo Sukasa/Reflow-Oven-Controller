@@ -1,7 +1,7 @@
 ﻿using Microsoft.SPOT.Hardware;
 
 
-namespace Reflow_Oven_Controller.Hardware_Drivers
+namespace ReflowOvenController.HardwareDrivers
 {
     /// <summary>
     ///     Driver class for MCP23017 16-bit GPIO Port Expander
