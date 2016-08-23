@@ -344,7 +344,7 @@ namespace ReflowOvenController
                     Thread.Sleep(30);
                 }
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 // Any hardware that *can* be controlled should be defaulted to failsafe configuration
                 try
@@ -391,8 +391,17 @@ namespace ReflowOvenController
                     {
                         using (TextWriter TW = new StreamWriter(FS))
                         {
+                            TW.WriteLine("Crash at " + DateTime.Now.ToString());
                             TW.WriteLine(ex.Message);
+                            TW.WriteLine("Exception type is " + ex.GetType().ToString());
                             TW.WriteLine(ex.StackTrace);
+                            while (ex.InnerException != null)
+                            {
+                                TW.WriteLine("Inner Exception:");
+                                ex = ex.InnerException;
+                                TW.WriteLine(ex.Message);
+                                TW.WriteLine(ex.StackTrace);
+                            }
                             TW.Flush();
                         }
                     }
