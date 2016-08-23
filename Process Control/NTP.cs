@@ -10,7 +10,7 @@ public static class Ntp
         try
         {
             var currentTime = GetNtpTime(server, timeZoneOffset);
-            Microsoft.SPOT.Hardware.Utility.SetLocalTime(currentTime);
+            Utility.SetLocalTime(currentTime);
 
             return true;
         }
