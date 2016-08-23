@@ -236,7 +236,7 @@ namespace ReflowOvenController
             _LCD = new Lcd(Pins.GPIO_PIN_A2, Pins.GPIO_PIN_A3, PWMChannels.PWM_PIN_D10);
             LCD = _LCD;
             _LCD.Init();
-            
+
             _OvenFanPWM = new PWM(PWMChannels.PWM_PIN_D5, 20000, 0.0, false);
             _OvenFanPWM.Start();
 
@@ -245,14 +245,20 @@ namespace ReflowOvenController
 
             CPULoad = new CPUMonitor();
 
-            Element1PID = new DeltaPID(() => OvenTemperature);
-            Element2PID = new DeltaPID(() => OvenTemperature);
+            DeltaPID.AllocatePIDs(2);
+            DeltaPID.TargetHz = 10;
+
+            Element1PID = DeltaPID.GetPID(0);
+            Element2PID = DeltaPID.GetPID(1);
+
+            GetCurrent TempGetter = () => OvenTemperature;
+            Element1PID.SetGetter(TempGetter);
+            Element2PID.SetGetter(TempGetter);
 
             // Resistive Element (Bottom)
             Element1PID.ProportionalBand = 10;
             Element1PID.IntegralRate = 9;
             Element1PID.IntegralResetBand = 15;
-            Element1PID.TargetHz = 10;
             Element1PID.ReverseActing = true;
             Element1PID.DerivativeTime = 19f;
             Element1PID.DerivativeGain = 2f;
@@ -263,12 +269,13 @@ namespace ReflowOvenController
             Element2PID.ProportionalBand = 5;
             Element2PID.IntegralRate = 11;
             Element2PID.IntegralResetBand = 11;
-            Element2PID.TargetHz = 10;
             Element2PID.ReverseActing = true;
             Element2PID.DerivativeTime = 10f;
             Element2PID.DerivativeGain = 3f;
             Element2PID.DerivativeBand = 60f;
             Element2PID.ProportionalGain = 60f;
+
+            DeltaPID.StartAll();
 
             Thread.CurrentThread.Priority = ThreadPriority.AboveNormal; // Kick the main control thread to high priority, as we do all hardware I/O and "heavy lifting" on this thread
 
