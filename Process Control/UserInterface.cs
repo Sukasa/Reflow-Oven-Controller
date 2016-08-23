@@ -390,8 +390,10 @@ namespace ReflowOvenController.ProcessControl
                     if (Keypad.IsKeyPressed(OvenKeypad.Keys.Stop))
                     {
                         LoadProfileScreen();
+                        OvenController.Keypad.LEDControl = OvenKeypad.LEDState.Off;
                         OvenController.ProfileController.CurrentState = ProfileController.ProcessState.NotStarted;
-                        OvenController.BrowserHost.Status = "Normal";
+                        if (OvenController.BrowserHost != null)
+                            OvenController.BrowserHost.Status = "Normal";
                     }
                     break;
                 case ProfileController.ProcessState.Finished:
