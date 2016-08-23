@@ -374,7 +374,8 @@ namespace ReflowOvenController.ProcessControl
             if (StatusChanged)
             {
                 WriteStatusMessage(Status);
-                OvenController.BrowserHost.Status = Status;
+                if (OvenController.BrowserHost != null)
+                    OvenController.BrowserHost.Status = Status;
             }
 
             // Handle stop/start

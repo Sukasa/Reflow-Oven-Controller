@@ -208,7 +208,8 @@ namespace ReflowOvenController.ProcessControl
             OvenController.Keypad.LEDControl = OvenKeypad.LEDState.Off;
             OvenController.Keypad.Beep(OvenKeypad.BeepLength.Long);
             _AbortReason = Reason;
-            OvenController.BrowserHost.Status = Reason;
+            if (OvenController.BrowserHost != null)
+                OvenController.BrowserHost.Status = Reason;
         }
 
         public enum StartFailureCode
