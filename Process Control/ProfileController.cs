@@ -155,8 +155,12 @@ namespace ReflowOvenController.ProcessControl
             }
         }
 
-        public void LoadProfile(string ProfileName)
+        public bool LoadProfile(string ProfileName)
         {
+            if (!File.Exists("\\SD\\Oven\\Profiles\\" + ProfileName))
+            {
+                return false;
+            }
             LoadedProfile = ProfileName;
             CurrentState = ProcessState.NotStarted;
 
@@ -199,6 +203,7 @@ namespace ReflowOvenController.ProcessControl
                                   Offset.Seconds > 0
                               )
                           );
+            return true;
         }
 
         public void Abort(string Reason = "Aborted")
