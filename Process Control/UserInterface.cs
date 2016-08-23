@@ -260,10 +260,10 @@ namespace ReflowOvenController.ProcessControl
                 {
                     if (ProfileSelection - ProfileScroll == 2)
                     {
-                        ProfileScroll = System.Math.Min(ProfileScroll + 3, OvenController.ProfileController.Profiles.Length - 3);
+                        ProfileScroll = Math.Min(ProfileScroll + 3, OvenController.ProfileController.Profiles.Length - 3);
                         RedrawProfileScreen();
                     }
-                    ProfileSelection = System.Math.Min(ProfileSelection + 1, OvenController.ProfileController.Profiles.Length - 1);
+                    ProfileSelection = Math.Min(ProfileSelection + 1, OvenController.ProfileController.Profiles.Length - 1);
                     DrawProfileBoxes();
                 }
             }
@@ -274,10 +274,10 @@ namespace ReflowOvenController.ProcessControl
                 {
                     if (ProfileSelection - ProfileScroll == 0)
                     {
-                        ProfileScroll = System.Math.Max(ProfileScroll - 3, 0);
+                        ProfileScroll = Math.Max(ProfileScroll - 3, 0);
                         RedrawProfileScreen();
                     }
-                    ProfileSelection = System.Math.Max(ProfileSelection - 1, 0);
+                    ProfileSelection = Math.Max(ProfileSelection - 1, 0);
                     DrawProfileBoxes();
                 }
             }
@@ -301,7 +301,7 @@ namespace ReflowOvenController.ProcessControl
 
         private int PresetToSlot(int Preset)
         {
-            return (int)(System.Math.Log((double)Preset) / System.Math.Log(2.0));
+            return (int)(Math.Log((double)Preset) / System.Math.Log(2.0));
         }
 
         #endregion
