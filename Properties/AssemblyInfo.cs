@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("MakerSpace Nanaimo")]
 [assembly: AssemblyProduct("Reflow Oven Controller")]
-[assembly: AssemblyCopyright("Copyright © Nicholas Matear 2015")]
+[assembly: AssemblyCopyright("Copyright © Sukasa 2015")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
