@@ -284,7 +284,7 @@ namespace ReflowOvenController.ProcessControl
             else if (Keypad.IsKeyPressed(OvenKeypad.Keys.Presets))
             {
                 // Assign current profile to a preset
-                OvenController.ProfileController.SetProfilePreset(OvenController.ProfileController.Profiles[ProfileSelection], PresetToSlot((int)(Keypad.KeysPressed & OvenKeypad.Keys.Presets)));
+                //OvenController.ProfileController.SetProfilePreset(OvenController.ProfileController.Profiles[ProfileSelection], PresetToSlot((int)(Keypad.KeysPressed & OvenKeypad.Keys.Presets)));
             }
             else if (Keypad.IsKeyPressed(OvenKeypad.Keys.Stop))
             {

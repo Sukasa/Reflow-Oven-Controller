@@ -61,15 +61,7 @@ namespace ReflowOvenController.ProcessControl
         private ProfileDatapoint[] _Datapoints;
         private int _CurrentDatapoint;
 
-
-        private ProfileDatapoint CurrentDatapoint
-        {
-            get
-            {
-                return _Datapoints[_CurrentDatapoint];
-            }
-        }
-
+        
         public enum ProcessState
         {
             NotStarted,
@@ -234,7 +226,7 @@ namespace ReflowOvenController.ProcessControl
             if (_Datapoints == null)
                 return StartFailureCode.NoProfileLoaded;
 
-            if (OvenController.DoorAjar)
+            if (OvenController.DoorAjar && ((_Datapoints[0].Flags & ProfileDatapoint.DatapointFlags.NoAbortDoorOpen) == 0))
                 return StartFailureCode.DoorAjar;
 
             if ((OvenController.Faults & (FaultCodes.Therm1Fail | FaultCodes.Therm2Fail)) == (FaultCodes.Therm1Fail | FaultCodes.Therm2Fail))
@@ -255,8 +247,9 @@ namespace ReflowOvenController.ProcessControl
             // Configure oven
             OvenController.ElementsEnabled = true;
             OvenController.Keypad.LEDControl = OvenKeypad.LEDState.On;
-            OvenController.Element1PID.Bias = 50f;
-            OvenController.Element2PID.Bias = 50f;
+
+            OvenController.Element1PID.Bias = _Datapoints[_CurrentDatapoint].Temperature >= 50 ? 50f : 0f;
+            OvenController.Element2PID.Bias = OvenController.Element1PID.Bias;
 
             return StartFailureCode.Success;
         }
@@ -277,6 +270,8 @@ namespace ReflowOvenController.ProcessControl
                     for (int i = 0; i < NumDatapoints; i++)
                     {
                         string[] Data = TR.ReadLine().Split(',');
+                        if (Data.Length < 3)
+                            return;
                         Points[i] = new ProfileDatapoint(int.Parse(Data[0]), (float)double.Parse(Data[1]), (ProfileDatapoint.DatapointFlags)int.Parse(Data[2]));
                     }
                 }
@@ -317,18 +312,18 @@ namespace ReflowOvenController.ProcessControl
                 case ProcessState.NotStarted:
                     return "Press Start";
                 case ProcessState.Running:
-                     if ((CurrentDatapoint.Flags & ProfileDatapoint.DatapointFlags.Cooling) != 0)
+                     if ((_Datapoints[_CurrentDatapoint]    .Flags & ProfileDatapoint.DatapointFlags.Cooling) != 0)
                     {
                         return "Cooling";
-                    } else if ((CurrentDatapoint.Flags & ProfileDatapoint.DatapointFlags.InsertItemNotification) != 0)
+                    } else if ((_Datapoints[_CurrentDatapoint].Flags & ProfileDatapoint.DatapointFlags.InsertItemNotification) != 0)
                     {
                         return "Insert item now";
                     }
-                    else if ((CurrentDatapoint.Flags & ProfileDatapoint.DatapointFlags.NoAbortDoorOpen) != 0)
+                    else if ((_Datapoints[_CurrentDatapoint].Flags & ProfileDatapoint.DatapointFlags.NoAbortDoorOpen) != 0)
                     {
                         return "Close door to continue";
                     }
-                    else if ((CurrentDatapoint.Flags & ProfileDatapoint.DatapointFlags.WaitForTemperature) != 0)
+                    else if ((_Datapoints[_CurrentDatapoint].Flags & ProfileDatapoint.DatapointFlags.WaitForTemperature) != 0)
                     {
                         return "Heating";
                     }
@@ -343,10 +338,11 @@ namespace ReflowOvenController.ProcessControl
             if (CurrentState != ProcessState.Running)
             {
                 // If we finished, then opening the door should shut off the LED / fan
-                if (OvenController.DoorAjar && CurrentState == ProcessState.Finished)
+                if (OvenController.DoorAjar && (CurrentState == ProcessState.Finished || CurrentState == ProcessState.Aborted))
                 {
                     OvenController.Keypad.LEDControl = OvenKeypad.LEDState.Off;
-                    OvenController.OvenFanSpeed = 0f;
+                    if (OvenController.OvenTemperature < 30)
+                        OvenController.OvenFanSpeed = 0f;
                 }
                 return;
             }
@@ -362,34 +358,8 @@ namespace ReflowOvenController.ProcessControl
             OvenController.LCD.DrawBrush = OvenController.LCD.CreateBrush(255, 128, 0);
             OvenController.LCD.SetPixel(X, OvenY);
 
-            // Advance datapoints based on time
-            if (ElapsedTime > _Datapoints[_CurrentDatapoint].TimeOffset)
-            {
-                _CurrentDatapoint++;
-
-                if (_CurrentDatapoint >= _Datapoints.Length)
-                {
-                    // Finish Cycle
-                    OvenController.Keypad.Beep(OvenKeypad.BeepLength.Long);
-
-                    OvenController.ElementsEnabled = false;
-                    CurrentState = ProcessState.Finished;
-                    OvenController.Keypad.LEDControl = OvenKeypad.LEDState.SlowFlash;
-                    return;
-                }
-
-                // If we should beep at this point, beep.
-                if ((_Datapoints[_CurrentDatapoint].Flags & ProfileDatapoint.DatapointFlags.Beep) == ProfileDatapoint.DatapointFlags.Beep)
-                {
-                    OvenController.Keypad.Beep(OvenKeypad.BeepLength.Short);
-                }
-
-                Tick();
-                return;
-            }
-
             // Turn on the circulation fan during cooling segments
-            if ((CurrentDatapoint.Flags & ProfileDatapoint.DatapointFlags.Cooling) != 0)
+            if ((_Datapoints[_CurrentDatapoint].Flags & ProfileDatapoint.DatapointFlags.Cooling) != 0)
             {
                 OvenController.OvenFanSpeed = 1.0f;
             }
@@ -441,7 +411,7 @@ namespace ReflowOvenController.ProcessControl
                 {
                     ElapsedTime = new TimeSpan(0, 0, 0);
                 }
-                if (OvenController.DoorAjar)
+                if (OvenController.DoorAjar /* || OvenController.Keypad.IsKeyPressed(OvenKeypad.Keys.Start)*/)
                 {
                     _Datapoints[_CurrentDatapoint].Flags &= ~ProfileDatapoint.DatapointFlags.InsertItemNotification;
                 }
@@ -498,6 +468,33 @@ namespace ReflowOvenController.ProcessControl
             {
                 OvenController.TemperatureSetpoint = _Datapoints[_CurrentDatapoint].Temperature;
             }
+
+
+            // Advance datapoints based on time
+            if (ElapsedTime > _Datapoints[_CurrentDatapoint].TimeOffset)
+            {
+                _CurrentDatapoint++;
+
+                if (_CurrentDatapoint >= _Datapoints.Length)
+                {
+                    // Finish Cycle
+                    OvenController.Keypad.Beep(OvenKeypad.BeepLength.Long);
+
+                    OvenController.ElementsEnabled = false;
+                    CurrentState = ProcessState.Finished;
+                    OvenController.Keypad.LEDControl = OvenKeypad.LEDState.SlowFlash;
+                    return;
+                }
+
+                // If we should beep at this point, beep.
+                if ((_Datapoints[_CurrentDatapoint].Flags & ProfileDatapoint.DatapointFlags.Beep) == ProfileDatapoint.DatapointFlags.Beep)
+                {
+                    OvenController.Keypad.Beep(OvenKeypad.BeepLength.Short);
+                }
+
+                Tick();
+                return;
+            }
         }
 
         // Draw profile to display, assuming the base window is already drawn
@@ -507,6 +504,11 @@ namespace ReflowOvenController.ProcessControl
 
             _TotalTime = _Datapoints[_Datapoints.Length - 1].TimeOffset;
             int RedBrush = OvenController.LCD.CreateBrush(255, 0, 0);
+
+
+
+            // Draw "Thermal Limit" line for bay temperature
+
 
             // Initialize datapoints for left edge of graph
             int XPrev = 11;
@@ -539,10 +541,8 @@ namespace ReflowOvenController.ProcessControl
                 YPrev = YNext;
             }
 
-            // Draw "Thermal Limit" line for bay temperature
             YPrev = 159 - (int)((OvenController.MaxBayTemperature / 250f) * 133);
             OvenController.LCD.DrawLine(11, YPrev, 308, YPrev, OvenController.LCD.CreateBrush(32, 64, 128));
-
         }
     }
 }

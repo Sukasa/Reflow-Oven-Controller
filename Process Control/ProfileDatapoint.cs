@@ -3,7 +3,7 @@ using Microsoft.SPOT;
 
 namespace ReflowOvenController.ProcessControl
 {
-    struct ProfileDatapoint
+    class ProfileDatapoint
     {
         //seconds,temperature,flags
         public TimeSpan TimeOffset;

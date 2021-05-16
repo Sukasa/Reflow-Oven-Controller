@@ -135,7 +135,7 @@ namespace ReflowOvenController
                 default:
                     // Fail hard - no working temperature sensors
                     _ThermoFailCounter = _ThermoFailCounter + 1;
-                    if (_ThermoFailCounter > 5 && ProfileController.CurrentState == ProcessControl.ProfileController.ProcessState.Running)
+                    if (_ThermoFailCounter > 5 && ProfileController.CurrentState == ProfileController.ProcessState.Running)
                     {
                         ProfileController.Abort("Dual Thermocouple Failure");
                     }
@@ -160,7 +160,7 @@ namespace ReflowOvenController
                 default:
                     // Fail hard - no working temperature sensors
                     _ThermoFailCounter = _ThermoFailCounter + 1;
-                    if (_ThermoFailCounter > 5 && ProfileController.CurrentState == ProcessControl.ProfileController.ProcessState.Running)
+                    if (_ThermoFailCounter > 5 && ProfileController.CurrentState == ProfileController.ProcessState.Running)
                     {
                         ProfileController.Abort("SPI Bus Failure");
                     }
@@ -178,10 +178,10 @@ namespace ReflowOvenController
                 _BayTempFailCounter = System.Math.Min(_BayTempFailCounter + 1, 10);
                 if (_BayTempFailCounter > 3)
                 {
-                    if (ProfileController.CurrentState != ProcessControl.ProfileController.ProcessState.Aborted)
+                    if (ProfileController.CurrentState != ProfileController.ProcessState.Aborted)
                     {
                         ProfileController.Abort("Aborted - System overheat");
-                        ProfileController.CurrentState = ProcessControl.ProfileController.ProcessState.Aborted;
+                        ProfileController.CurrentState = ProfileController.ProcessState.Aborted;
                         Keypad.LEDControl = OvenKeypad.LEDState.FastFlash;
                     }
                     OvenFanSpeed = 1.0f;
@@ -222,6 +222,15 @@ namespace ReflowOvenController
             _Element2.PowerLevel = UpperElementPower / 100f;
 
             LastDoorState = DoorAjar;
+
+            if (ProfileController.CurrentState != ProfileController.ProcessState.Running &&
+                DateTime.Now.Hour == 0 &&
+                DateTime.Now.Minute == 0 &&
+                DateTime.Now.Second < 30 &&
+                DateTime.Now.Year > 2010)
+            {
+                PowerState.RebootDevice(false);
+            }
         }
 
         public void Init()
@@ -233,6 +242,8 @@ namespace ReflowOvenController
             _Keypad = new OvenKeypad(Pins.GPIO_PIN_D8, Pins.GPIO_PIN_D1, Pins.GPIO_PIN_D2, Pins.GPIO_PIN_D3,
                                      Pins.GPIO_PIN_D4, Pins.GPIO_PIN_D0, Pins.GPIO_PIN_D6,
                                      Pins.GPIO_PIN_D7, PWMChannels.PWM_PIN_D9);
+
+            _Keypad.Beep(OvenKeypad.BeepLength.Short);
 
             _Sensor1 = new TemperatureSensor(Pins.GPIO_PIN_A0);
             _Sensor2 = new TemperatureSensor(Pins.GPIO_PIN_A1);
@@ -262,7 +273,7 @@ namespace ReflowOvenController
             CPULoad = new CPUMonitor();
 
             DeltaPID.AllocatePIDs(2);
-            DeltaPID.TargetHz = 10;
+            DeltaPID.TargetHz = 5;
 
             Element1PID = DeltaPID.GetPID(0);
             Element2PID = DeltaPID.GetPID(1);
@@ -295,7 +306,7 @@ namespace ReflowOvenController
 
             Thread.CurrentThread.Priority = ThreadPriority.AboveNormal; // Kick the main control thread to high priority, as we do all hardware I/O and "heavy lifting" on this thread
 
-            Keypad.Beep(OvenKeypad.BeepLength.Short);
+            
 
             if (InternetConnectionAvailable())
             {
@@ -323,6 +334,8 @@ namespace ReflowOvenController
             {
                 Faults |= FaultCodes.NoNetConnection;
             }
+            
+            
 
             _Interface = new UserInterface();
             _ScanLED = new OutputPort(Pins.ONBOARD_LED, false);
@@ -427,12 +440,18 @@ namespace ReflowOvenController
 
         public static bool InternetConnectionAvailable()
         {
-            foreach (NetworkInterface Interface in NetworkInterface.GetAllNetworkInterfaces())
-            {
-                if (Interface.GatewayAddress != "0.0.0.0")
+            try {
+                foreach (NetworkInterface Interface in NetworkInterface.GetAllNetworkInterfaces())
                 {
-                    return true;
+                    if (Interface != null && Interface.GatewayAddress != "0.0.0.0")
+                    {
+                        return true;
+                    }
                 }
+            }
+            catch
+            {
+                //swallow
             }
             return false;
         }

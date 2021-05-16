@@ -11,7 +11,6 @@ namespace ReflowOvenController
         public OutputPort _LED;
         public PWM Buzzer;
         private Thread _LEDThread;
-        private DateTime _BeepTime;
 
 
         // Error tune, played when the microcontroller hits an exception
@@ -73,17 +72,11 @@ namespace ReflowOvenController
 
         public LEDState LEDControl { get; set; }
 
-        public DateTime LastBeepTime
-        {
-            get
-            {
-                return _BeepTime;
-            }
-        }
+        public DateTime LastBeepTime { get; private set; }
 
         public void Beep(BeepLength Length)
         {
-            _BeepTime = DateTime.Now;
+            LastBeepTime = DateTime.Now;
             if (Length == 0 || _PlayingTune)
                 return;
 

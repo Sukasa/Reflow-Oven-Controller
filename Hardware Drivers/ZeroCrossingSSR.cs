@@ -15,7 +15,7 @@ namespace ReflowOvenController
 
         private float _Tracking;
         private float _PowerLevel;
-        private float _Increment;
+        //private float _Increment;
 
         public float PowerLevel
         {
@@ -25,16 +25,7 @@ namespace ReflowOvenController
             }
             set
             {
-                float _OldPowerLevel = _PowerLevel;
-                _PowerLevel = (float)Math.Max(Math.Min(value, 1.0f), 0.0f);
-
-                if (Math.Abs(_OldPowerLevel - _PowerLevel) > 0.001)
-                {
-                    float OnPulses = (float)Math.Floor(125f * _PowerLevel);
-                    float OffPulses = 125f - OnPulses;
-                    if (OnPulses != 0)
-                        _Increment = OffPulses / OnPulses;
-                }
+                _PowerLevel = value;
             }
         }
 
@@ -50,21 +41,19 @@ namespace ReflowOvenController
 
                 if (SSR._PowerLevel < 0.01)
                 {
-                    SSR._Tracking = 0;
                     SSR._Output.Write(false);
                     return;
                 }
 
-                if (SSR._Tracking <= 0f)
+                if (SSR._Tracking <= SSR._PowerLevel)
                 {
-                    SSR._Tracking = (float)Math.Max(SSR._Tracking + SSR._Increment, -1.0);
                     SSR._Output.Write(true);
                 }
                 else
                 {
-                    SSR._Tracking -= 1f;
                     SSR._Output.Write(false);
                 }
+                SSR._Tracking = (SSR._Tracking + 0.05f) % 1f;
             }
             catch
             {
@@ -75,7 +64,7 @@ namespace ReflowOvenController
 
         public ZeroCrossingSSR(Cpu.Pin SSRPin)
         {
-            _PulseTimer = new Timer(Tick, this, 0, 8);
+            _PulseTimer = new Timer(Tick, this, 0, 200);
             _Output = new OutputPort(SSRPin, false);
         }
     }
